@@ -14,10 +14,27 @@ var (
 		Long:  "",
 		Run:   runList,
 	}
+
+	used   bool
+	unused bool
+	sg     *[]string
 )
 
 func runList(cmd *cobra.Command, args []string) {
-	sgUsage, err := core.ListAllSecurityGroups("us-east-1")
+	var ids []string
+	if sg != nil {
+		ids = *sg
+	}
+
+	filters := core.Filters{Status: core.All}
+	if used {
+		filters.Status = core.Used
+	}
+	if unused {
+		filters.Status = core.Unused
+	}
+
+	sgUsage, err := core.ListSecurityGroups(ids, filters, "us-east-1")
 	if err != nil {
 		cmd.PrintErrf("Error: %s", err)
 	}
@@ -70,4 +87,11 @@ func init() {
 }
 
 func includeValidateFlags(cmd *cobra.Command) {
+	sg = cmd.Flags().StringSlice("sg", nil,
+		"[Optional] Security Group Id to be filtered. It can accept multiple values divided by comma. "+
+			"Default: none (if none is specified all security groups will be retrieved)")
+	cmd.Flags().BoolVarP(&used, "used", "u", false,
+		"[Optional] List all security groups.")
+	cmd.Flags().BoolVarP(&unused, "unused", "n", false,
+		"[Optional] List unused security groups security groups.")
 }

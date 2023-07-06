@@ -11,7 +11,7 @@ import (
 // Execute - parse CLI arguments and execute command
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Println("There was an error while executing cert-ripper!", err)
+		log.Println("There was an error while executing sg-ripper!", err)
 		os.Exit(1)
 	}
 }
