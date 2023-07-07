@@ -20,51 +20,9 @@ type Filters struct {
 	Status SecurityGroupStatus
 }
 
-type SecurityGroupUsage struct {
-	SecurityGroupName        string
-	SecurityGroupId          string
-	SecurityGroupDescription string
-	Default                  bool
-	UsedBy                   []NetworkInterface
-	VpcId                    string
-}
-
-func NewSecurityGroupUsage(securityGroupName string, securityGroupId string, securityGroupDescription string,
-	usedBy []NetworkInterface, vpcId string) *SecurityGroupUsage {
-	return &SecurityGroupUsage{
-		SecurityGroupName:        securityGroupName,
-		SecurityGroupId:          securityGroupId,
-		SecurityGroupDescription: securityGroupDescription,
-		UsedBy:                   usedBy,
-		VpcId:                    vpcId,
-		Default:                  securityGroupName == "default",
-	}
-}
-
-type NetworkInterface struct {
-	Id               string
-	Description      string
-	Type             string
-	ManagedByAWS     bool
-	Status           string
-	EC2Attachment    []EC2Attachment
-	LambdaAttachment []string
-	ECSAttachment    []string
-}
-
-type EC2Attachment struct {
-	InstanceId string
-}
-
-type LambdaAttachment struct {
-	Arn  string
-	Name string
-}
-
-type ECSAttachment struct {
-	ServiceName string
-}
-
+// ListSecurityGroups lists the usage of Security Groups of whose IDs are provided in the securityGroupIds slice.
+// If the slice is empty, all the security groups will be retrieved. Furthermore, we can apply filters to retrieved
+// Security Groups, for example: we can grab only the Security Groups which are in use or just unused ones.
 func ListSecurityGroups(securityGroupIds []string, filters Filters, region string) ([]SecurityGroupUsage, error) {
 	cfg, configErr := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if configErr != nil {
