@@ -26,8 +26,19 @@ var (
 		Version:          fmt.Sprintf("%s (%s)", appVersion, gitCommit),
 		TraverseChildren: true,
 	}
+
+	region  string
+	profile string
 )
 
 func init() {
+	includeValidateFlags(rootCmd)
 	rootCmd.AddCommand(list.Cmd)
+}
+
+func includeValidateFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().StringVar(&region, "region", "",
+		"[Optional] AWS Region.")
+	cmd.PersistentFlags().StringVar(&profile, "profile", "",
+		"[Optional] Profile.")
 }

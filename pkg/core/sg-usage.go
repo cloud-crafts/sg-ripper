@@ -1,23 +1,25 @@
 package core
 
 type SecurityGroupUsage struct {
-	SecurityGroupName        string
-	SecurityGroupId          string
-	SecurityGroupDescription string
-	Default                  bool
-	UsedBy                   []NetworkInterface
-	VpcId                    string
+	SecurityGroupName           string
+	SecurityGroupId             string
+	SecurityGroupDescription    string
+	Default                     bool
+	UsedBy                      []NetworkInterface
+	SecurityGroupRuleReferences []string
+	VpcId                       string
 }
 
 func NewSecurityGroupUsage(securityGroupName string, securityGroupId string, securityGroupDescription string,
-	usedBy []NetworkInterface, vpcId string) *SecurityGroupUsage {
+	usedBy []NetworkInterface, securityGroupRuleReferences []string, vpcId string) *SecurityGroupUsage {
 	return &SecurityGroupUsage{
-		SecurityGroupName:        securityGroupName,
-		SecurityGroupId:          securityGroupId,
-		SecurityGroupDescription: securityGroupDescription,
-		UsedBy:                   usedBy,
-		VpcId:                    vpcId,
-		Default:                  securityGroupName == "default",
+		SecurityGroupName:           securityGroupName,
+		SecurityGroupId:             securityGroupId,
+		SecurityGroupDescription:    securityGroupDescription,
+		SecurityGroupRuleReferences: securityGroupRuleReferences,
+		UsedBy:                      usedBy,
+		VpcId:                       vpcId,
+		Default:                     securityGroupName == "default",
 	}
 }
 
