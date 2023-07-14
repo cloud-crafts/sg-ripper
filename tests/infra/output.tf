@@ -9,3 +9,13 @@ output "public_subnet_arns" {
 output "private_subnet_arns" {
   value = module.vpc.private_subnets
 }
+
+# lambda
+output "lambda_sg" {
+  value = aws_security_group.lambda_sg.id
+}
+
+# ec2
+output "ec2_sg" {
+  value = aws_security_group.ec2_sg.id
+}

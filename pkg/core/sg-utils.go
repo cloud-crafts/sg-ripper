@@ -34,7 +34,7 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 		return nil, sgErr
 	}
 
-	securityGroupRules, sgRuleErr := describeSecurityGroupRules(client, securityGroupIds)
+	securityGroupRules, sgRuleErr := describeSecurityGroupRules(client)
 	if sgRuleErr != nil {
 		return nil, sgRuleErr
 	}
@@ -51,16 +51,12 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 		for _, ifc := range associatedInterfaces {
 			if ifc.NetworkInterfaceId != nil {
 				nic := NetworkInterface{
-					Id:           *ifc.NetworkInterfaceId,
-					Description:  *ifc.Description,
-					Type:         string(ifc.InterfaceType),
-					ManagedByAWS: *ifc.RequesterManaged,
-					Status:       string(ifc.Status),
-				}
-				if ifc.Attachment != nil && ifc.Attachment.InstanceId != nil {
-					nic.EC2Attachment = []EC2Attachment{
-						{InstanceId: *ifc.Attachment.InstanceId},
-					}
+					Id:            *ifc.NetworkInterfaceId,
+					Description:   *ifc.Description,
+					Type:          string(ifc.InterfaceType),
+					ManagedByAWS:  *ifc.RequesterManaged,
+					Status:        string(ifc.Status),
+					EC2Attachment: getEC2Attachments(ifc),
 				}
 				associations = append(associations, nic)
 			}
@@ -122,7 +118,7 @@ func describeSecurityGroups(client *ec2.Client, securityGroupIds []string) ([]ty
 	return securityGroups, nil
 }
 
-func describeSecurityGroupRules(client *ec2.Client, securityGroupIds []string) ([]types.SecurityGroupRule, error) {
+func describeSecurityGroupRules(client *ec2.Client) ([]types.SecurityGroupRule, error) {
 	var nextToken *string = nil
 	securityGroupRules := make([]types.SecurityGroupRule, 0)
 	for {
@@ -152,6 +148,15 @@ func getAssociatedNetworkInterfaces(sg types.SecurityGroup, networkInterfaces []
 		}
 	}
 	return associatedInterfaces
+}
+
+func getEC2Attachments(ifc types.NetworkInterface) []EC2Attachment {
+	if ifc.Attachment != nil && ifc.Attachment.InstanceId != nil {
+		return []EC2Attachment{
+			{InstanceId: *ifc.Attachment.InstanceId},
+		}
+	}
+	return nil
 }
 
 func getSecurityGroupRuleReferences(sg types.SecurityGroup, securityGroupRules []types.SecurityGroupRule) []string {
