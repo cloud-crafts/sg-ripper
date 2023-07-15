@@ -83,6 +83,12 @@ func printSecurityGroupUsage(usage core.SecurityGroupUsage) {
 					bulletList = append(bulletList, pterm.BulletListItem{Level: 3, Text: fmt.Sprintf("%s", ec2Attachment.InstanceId)})
 				}
 			}
+			if len(eni.LambdaAttachment) > 0 {
+				bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: "Used by Lambda Function(s):"})
+				for _, lambdaAttachment := range eni.LambdaAttachment {
+					bulletList = append(bulletList, pterm.BulletListItem{Level: 3, Text: fmt.Sprintf("%s(%s)", lambdaAttachment.Name, lambdaAttachment.Arn)})
+				}
+			}
 		}
 	}
 	if len(usage.SecurityGroupRuleReferences) > 0 {

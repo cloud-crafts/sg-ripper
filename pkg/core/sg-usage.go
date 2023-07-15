@@ -30,7 +30,7 @@ type NetworkInterface struct {
 	ManagedByAWS     bool
 	Status           string
 	EC2Attachment    []EC2Attachment
-	LambdaAttachment []string
+	LambdaAttachment []LambdaAttachment
 	ECSAttachment    []string
 }
 

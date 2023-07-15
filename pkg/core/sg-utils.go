@@ -2,10 +2,16 @@ package core
 
 import (
 	"context"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/aws-sdk-go-v2/service/lambda"
+	lambdaTypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
+	"golang.org/x/exp/slices"
 )
+
+const MaxResults = 1000
 
 const (
 	All SecurityGroupStatus = iota
@@ -27,21 +33,27 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 	if configErr != nil {
 		return nil, configErr
 	}
-	client := ec2.NewFromConfig(cfg)
+	ec2Client := ec2.NewFromConfig(cfg)
+	lambdaClient := lambda.NewFromConfig(cfg)
 
-	securityGroups, sgErr := describeSecurityGroups(client, securityGroupIds)
+	securityGroups, sgErr := describeSecurityGroups(ec2Client, securityGroupIds)
 	if sgErr != nil {
 		return nil, sgErr
 	}
 
-	securityGroupRules, sgRuleErr := describeSecurityGroupRules(client)
+	securityGroupRules, sgRuleErr := describeSecurityGroupRules(ec2Client)
 	if sgRuleErr != nil {
 		return nil, sgRuleErr
 	}
 
-	networkInterfaces, ifcErr := describeNetworkInterfaces(client, securityGroupIds)
+	networkInterfaces, ifcErr := describeNetworkInterfaces(ec2Client, securityGroupIds)
 	if ifcErr != nil {
 		return nil, ifcErr
+	}
+
+	lambdaFunctions, fnErr := getLambdaFunctions(lambdaClient)
+	if fnErr != nil {
+		return nil, fnErr
 	}
 
 	usage := make([]SecurityGroupUsage, 0)
@@ -51,12 +63,13 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 		for _, ifc := range associatedInterfaces {
 			if ifc.NetworkInterfaceId != nil {
 				nic := NetworkInterface{
-					Id:            *ifc.NetworkInterfaceId,
-					Description:   *ifc.Description,
-					Type:          string(ifc.InterfaceType),
-					ManagedByAWS:  *ifc.RequesterManaged,
-					Status:        string(ifc.Status),
-					EC2Attachment: getEC2Attachments(ifc),
+					Id:               *ifc.NetworkInterfaceId,
+					Description:      *ifc.Description,
+					Type:             string(ifc.InterfaceType),
+					ManagedByAWS:     *ifc.RequesterManaged,
+					Status:           string(ifc.Status),
+					EC2Attachment:    getEC2Attachments(ifc),
+					LambdaAttachment: getLambdaAttachments(lambdaFunctions, sg, ifc),
 				}
 				associations = append(associations, nic)
 			}
@@ -68,17 +81,19 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 	return applyFilters(usage, filters), nil
 }
 
-func describeNetworkInterfaces(client *ec2.Client, securityGroupIds []string) ([]types.NetworkInterface, error) {
+// Get a list of Network Interfaces used by the security groups from the input slice
+func describeNetworkInterfaces(client *ec2.Client, securityGroupIds []string) ([]ec2Types.NetworkInterface, error) {
 	filterName := "group-id"
-	var filters []types.Filter
+	var filters []ec2Types.Filter
 	if len(securityGroupIds) > 0 {
-		filters = append(filters, types.Filter{Name: &filterName, Values: securityGroupIds})
+		filters = append(filters, ec2Types.Filter{Name: &filterName, Values: securityGroupIds})
 	}
 
 	var nextToken *string = nil
-	networkInterfaces := make([]types.NetworkInterface, 0)
+	networkInterfaces := make([]ec2Types.NetworkInterface, 0)
 	for {
-		ifcResponse, err := client.DescribeNetworkInterfaces(context.TODO(), &ec2.DescribeNetworkInterfacesInput{NextToken: nextToken})
+		ifcResponse, err := client.DescribeNetworkInterfaces(context.TODO(),
+			&ec2.DescribeNetworkInterfacesInput{NextToken: nextToken, MaxResults: aws.Int32(int32(MaxResults))})
 		if err != nil {
 			return nil, err
 		}
@@ -93,17 +108,19 @@ func describeNetworkInterfaces(client *ec2.Client, securityGroupIds []string) ([
 	return networkInterfaces, nil
 }
 
-func describeSecurityGroups(client *ec2.Client, securityGroupIds []string) ([]types.SecurityGroup, error) {
+// Get a list of Security Groups based on the list of Security Group IDs provided as an input
+func describeSecurityGroups(client *ec2.Client, securityGroupIds []string) ([]ec2Types.SecurityGroup, error) {
 	filterName := "group-id"
-	var filters []types.Filter
+	var filters []ec2Types.Filter
 	if len(securityGroupIds) > 0 {
-		filters = append(filters, types.Filter{Name: &filterName, Values: securityGroupIds})
+		filters = append(filters, ec2Types.Filter{Name: &filterName, Values: securityGroupIds})
 	}
 
 	var nextToken *string = nil
-	securityGroups := make([]types.SecurityGroup, 0)
+	securityGroups := make([]ec2Types.SecurityGroup, 0)
 	for {
-		sgResponse, err := client.DescribeSecurityGroups(context.TODO(), &ec2.DescribeSecurityGroupsInput{NextToken: nextToken, Filters: filters})
+		sgResponse, err := client.DescribeSecurityGroups(context.TODO(),
+			&ec2.DescribeSecurityGroupsInput{NextToken: nextToken, Filters: filters, MaxResults: aws.Int32(int32(MaxResults))})
 		if err != nil {
 			return nil, err
 		}
@@ -118,12 +135,13 @@ func describeSecurityGroups(client *ec2.Client, securityGroupIds []string) ([]ty
 	return securityGroups, nil
 }
 
-func describeSecurityGroupRules(client *ec2.Client) ([]types.SecurityGroupRule, error) {
+// Get all the Security Group Rules. (TODO: try to optimise this to grab a sublist only)
+func describeSecurityGroupRules(client *ec2.Client) ([]ec2Types.SecurityGroupRule, error) {
 	var nextToken *string = nil
-	securityGroupRules := make([]types.SecurityGroupRule, 0)
+	securityGroupRules := make([]ec2Types.SecurityGroupRule, 0)
 	for {
 		sgResponse, err := client.DescribeSecurityGroupRules(context.TODO(),
-			&ec2.DescribeSecurityGroupRulesInput{NextToken: nextToken})
+			&ec2.DescribeSecurityGroupRulesInput{NextToken: nextToken, MaxResults: aws.Int32(int32(MaxResults))})
 		if err != nil {
 			return nil, err
 		}
@@ -138,8 +156,9 @@ func describeSecurityGroupRules(client *ec2.Client) ([]types.SecurityGroupRule, 
 	return securityGroupRules, nil
 }
 
-func getAssociatedNetworkInterfaces(sg types.SecurityGroup, networkInterfaces []types.NetworkInterface) []types.NetworkInterface {
-	associatedInterfaces := make([]types.NetworkInterface, 0)
+// Get all the Network Interfaces which are associated to one of the Security Groups from the input list
+func getAssociatedNetworkInterfaces(sg ec2Types.SecurityGroup, networkInterfaces []ec2Types.NetworkInterface) []ec2Types.NetworkInterface {
+	associatedInterfaces := make([]ec2Types.NetworkInterface, 0)
 	for _, ifc := range networkInterfaces {
 		for _, associatedSg := range ifc.Groups {
 			if *sg.GroupId == *associatedSg.GroupId {
@@ -150,7 +169,30 @@ func getAssociatedNetworkInterfaces(sg types.SecurityGroup, networkInterfaces []
 	return associatedInterfaces
 }
 
-func getEC2Attachments(ifc types.NetworkInterface) []EC2Attachment {
+// Get all the Lambda Functions which are attached to a VPC
+func getLambdaFunctions(client *lambda.Client) ([]lambdaTypes.FunctionConfiguration, error) {
+	maxItems := 1000
+	var functions []lambdaTypes.FunctionConfiguration
+	paginator := lambda.NewListFunctionsPaginator(client, &lambda.ListFunctionsInput{
+		MaxItems: aws.Int32(int32(MaxResults)),
+	})
+	for paginator.HasMorePages() && len(functions) < maxItems {
+		pageOutput, err := paginator.NextPage(context.TODO())
+		if err != nil {
+			return nil, err
+		}
+		for _, function := range pageOutput.Functions {
+			if function.VpcConfig != nil && len(function.VpcConfig.SecurityGroupIds) > 0 {
+				functions = append(functions, function)
+			}
+		}
+	}
+
+	return functions, nil
+}
+
+// Get the IDs of the EC2 instances attached to the Network Interface
+func getEC2Attachments(ifc ec2Types.NetworkInterface) []EC2Attachment {
 	if ifc.Attachment != nil && ifc.Attachment.InstanceId != nil {
 		return []EC2Attachment{
 			{InstanceId: *ifc.Attachment.InstanceId},
@@ -159,7 +201,24 @@ func getEC2Attachments(ifc types.NetworkInterface) []EC2Attachment {
 	return nil
 }
 
-func getSecurityGroupRuleReferences(sg types.SecurityGroup, securityGroupRules []types.SecurityGroupRule) []string {
+// Get the Lambda Functions which are using the Security Group and the Network Interface
+func getLambdaAttachments(functions []lambdaTypes.FunctionConfiguration, sg ec2Types.SecurityGroup, eni ec2Types.NetworkInterface) []LambdaAttachment {
+	lambdaAttachments := make([]LambdaAttachment, 0)
+	if eni.InterfaceType == ec2Types.NetworkInterfaceTypeLambda {
+		for _, function := range functions {
+			if slices.Contains(function.VpcConfig.SecurityGroupIds, *sg.GroupId) {
+				lambdaAttachments = append(lambdaAttachments, LambdaAttachment{
+					Arn:  *function.FunctionArn,
+					Name: *function.FunctionName,
+				})
+			}
+		}
+	}
+	return lambdaAttachments
+}
+
+// Get the Security Group Rules which are referencing the Security Group
+func getSecurityGroupRuleReferences(sg ec2Types.SecurityGroup, securityGroupRules []ec2Types.SecurityGroupRule) []string {
 	sgIds := make([]string, 0)
 	for _, rule := range securityGroupRules {
 		if rule.ReferencedGroupInfo == nil || rule.ReferencedGroupInfo.GroupId == nil {
@@ -172,6 +231,7 @@ func getSecurityGroupRuleReferences(sg types.SecurityGroup, securityGroupRules [
 	return sgIds
 }
 
+// Apply Filters to the list of Security Group usages
 func applyFilters(usages []SecurityGroupUsage, filters Filters) []SecurityGroupUsage {
 	if filters.Status == All {
 		return usages
