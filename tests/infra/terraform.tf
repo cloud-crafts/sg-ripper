@@ -5,6 +5,12 @@ terraform {
       version = "~> 5.0"
     }
   }
+  backend "s3" {
+    bucket = "terraform-state-a4ldev"
+    key    = "sg-ripper/infra/tfstate"
+    region = "us-east-1"
+    profile = "A4L-DEV"
+  }
 }
 
 # Configure the AWS Provider
