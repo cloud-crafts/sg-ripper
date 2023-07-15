@@ -171,12 +171,11 @@ func getAssociatedNetworkInterfaces(sg ec2Types.SecurityGroup, networkInterfaces
 
 // Get all the Lambda Functions which are attached to a VPC
 func getLambdaFunctions(client *lambda.Client) ([]lambdaTypes.FunctionConfiguration, error) {
-	maxItems := 1000
 	var functions []lambdaTypes.FunctionConfiguration
 	paginator := lambda.NewListFunctionsPaginator(client, &lambda.ListFunctionsInput{
 		MaxItems: aws.Int32(int32(MaxResults)),
 	})
-	for paginator.HasMorePages() && len(functions) < maxItems {
+	for paginator.HasMorePages() && len(functions) < MaxResults {
 		pageOutput, err := paginator.NextPage(context.TODO())
 		if err != nil {
 			return nil, err
