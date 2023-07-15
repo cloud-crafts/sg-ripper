@@ -10,6 +10,7 @@ module "vpc" {
 
   create_igw         = true
   single_nat_gateway = true
+  enable_nat_gateway = true
 
   tags = {
     Terraform   = "true"

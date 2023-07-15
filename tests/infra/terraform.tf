@@ -6,9 +6,9 @@ terraform {
     }
   }
   backend "s3" {
-    bucket = "terraform-state-a4ldev"
-    key    = "sg-ripper/infra/tfstate"
-    region = "us-east-1"
+    bucket  = "terraform-state-a4ldev"
+    key     = "sg-ripper/infra/tfstate"
+    region  = "us-east-1"
     profile = "A4L-DEV"
   }
 }
