@@ -23,6 +23,17 @@ func NewSecurityGroupUsage(securityGroupName string, securityGroupId string, sec
 	}
 }
 
+// IsInUse returns true if the Security Group is in use: it is used by at least one Network Interface, or
+// it is referenced by an SG inbound/outbound rule
+func (u *SecurityGroupUsage) IsInUse() bool {
+	return len(u.UsedBy) > 0 || len(u.SecurityGroupRuleReferences) > 0
+}
+
+// CanBeRemoved returns true if the Security Group can be removed, meaning it is not in use, or it is not a default SG
+func (u *SecurityGroupUsage) CanBeRemoved() bool {
+	return !u.Default && !u.IsInUse()
+}
+
 type NetworkInterface struct {
 	Id                string
 	Description       *string

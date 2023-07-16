@@ -58,10 +58,10 @@ func runList(cmd *cobra.Command, args []string) {
 
 func printSecurityGroupUsage(usage core.SecurityGroupUsage) {
 	pterm.DefaultSection.Printf("%s(%s)", usage.SecurityGroupName, usage.SecurityGroupId)
-	reasons := canBeRemoved(usage)
+	reasons := getReasonsAgainstRemoval(usage)
 	bulletList := []pterm.BulletListItem{
 		{Level: 0, Text: fmt.Sprintf("Description: %s", usage.SecurityGroupDescription)},
-		{Level: 0, Text: fmt.Sprintf("Can be Removed: %t", len(reasons) <= 0)},
+		{Level: 0, Text: fmt.Sprintf("Can be Removed: %t", usage.CanBeRemoved())},
 	}
 	if len(reasons) > 0 {
 		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Reasons:"})
@@ -103,16 +103,18 @@ func printSecurityGroupUsage(usage core.SecurityGroupUsage) {
 	}
 }
 
-func canBeRemoved(usage core.SecurityGroupUsage) []string {
+func getReasonsAgainstRemoval(usage core.SecurityGroupUsage) []string {
 	reasons := make([]string, 0)
-	if usage.Default {
-		reasons = append(reasons, fmt.Sprintf("Security Group is Default in VPC %s", usage.VpcId))
-	}
-	if len(usage.UsedBy) > 0 {
-		reasons = append(reasons, "Security Group is in use")
-	}
-	if len(usage.SecurityGroupRuleReferences) > 0 {
-		reasons = append(reasons, "Security Group is references by a Security Group Rule")
+	if !usage.CanBeRemoved() {
+		if usage.Default {
+			reasons = append(reasons, fmt.Sprintf("Security Group is Default in VPC %s", usage.VpcId))
+		}
+		if len(usage.UsedBy) > 0 {
+			reasons = append(reasons, "Security Group is used by an ENI")
+		}
+		if len(usage.SecurityGroupRuleReferences) > 0 {
+			reasons = append(reasons, "Security Group is references by a Security Group Rule")
+		}
 	}
 	return reasons
 }
