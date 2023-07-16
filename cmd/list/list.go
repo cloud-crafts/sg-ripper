@@ -73,19 +73,19 @@ func printSecurityGroupUsage(usage core.SecurityGroupUsage) {
 		bulletList = append(bulletList, pterm.BulletListItem{Level: 0, Text: "Used by Network Interface(s):"})
 		for _, eni := range usage.UsedBy {
 			bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("%s", eni.Id)})
-			bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf("Description: %s", eni.Description)})
+			if eni.Description != nil {
+				bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf("Description: %s", *eni.Description)})
+			}
 			bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf("Type: %s", eni.Type)})
 			bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf("Managed By AWS: %t", eni.ManagedByAWS)})
 			bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf("Status: %s", eni.Status)})
-			if len(eni.EC2Attachment) > 0 {
-				bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: "Attached to EC2 instance(s):"})
-				for _, ec2Attachment := range eni.EC2Attachment {
-					bulletList = append(bulletList, pterm.BulletListItem{Level: 3, Text: fmt.Sprintf("%s", ec2Attachment.InstanceId)})
-				}
+			if eni.EC2Attachment != nil {
+				bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: "Attached to EC2 instance:"})
+				bulletList = append(bulletList, pterm.BulletListItem{Level: 3, Text: fmt.Sprintf("%s", eni.EC2Attachment.InstanceId)})
 			}
-			if len(eni.LambdaAttachment) > 0 {
+			if len(eni.LambdaAttachments) > 0 {
 				bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: "Used by Lambda Function(s):"})
-				for _, lambdaAttachment := range eni.LambdaAttachment {
+				for _, lambdaAttachment := range eni.LambdaAttachments {
 					bulletList = append(bulletList, pterm.BulletListItem{Level: 3, Text: fmt.Sprintf("%s(%s)", lambdaAttachment.Name, lambdaAttachment.Arn)})
 				}
 			}

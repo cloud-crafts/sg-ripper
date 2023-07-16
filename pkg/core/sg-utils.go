@@ -63,13 +63,13 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 		for _, ifc := range associatedInterfaces {
 			if ifc.NetworkInterfaceId != nil {
 				nic := NetworkInterface{
-					Id:               *ifc.NetworkInterfaceId,
-					Description:      *ifc.Description,
-					Type:             string(ifc.InterfaceType),
-					ManagedByAWS:     *ifc.RequesterManaged,
-					Status:           string(ifc.Status),
-					EC2Attachment:    getEC2Attachments(ifc),
-					LambdaAttachment: getLambdaAttachments(lambdaFunctions, sg, ifc),
+					Id:                *ifc.NetworkInterfaceId,
+					Description:       ifc.Description,
+					Type:              string(ifc.InterfaceType),
+					ManagedByAWS:      *ifc.RequesterManaged,
+					Status:            string(ifc.Status),
+					EC2Attachment:     getEC2Attachment(ifc),
+					LambdaAttachments: getLambdaAttachments(lambdaFunctions, sg, ifc),
 				}
 				associations = append(associations, nic)
 			}
@@ -191,11 +191,9 @@ func getLambdaFunctions(client *lambda.Client) ([]lambdaTypes.FunctionConfigurat
 }
 
 // Get the IDs of the EC2 instances attached to the Network Interface
-func getEC2Attachments(ifc ec2Types.NetworkInterface) []EC2Attachment {
+func getEC2Attachment(ifc ec2Types.NetworkInterface) *EC2Attachment {
 	if ifc.Attachment != nil && ifc.Attachment.InstanceId != nil {
-		return []EC2Attachment{
-			{InstanceId: *ifc.Attachment.InstanceId},
-		}
+		return &EC2Attachment{InstanceId: *ifc.Attachment.InstanceId}
 	}
 	return nil
 }

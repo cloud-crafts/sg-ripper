@@ -24,14 +24,14 @@ func NewSecurityGroupUsage(securityGroupName string, securityGroupId string, sec
 }
 
 type NetworkInterface struct {
-	Id               string
-	Description      string
-	Type             string
-	ManagedByAWS     bool
-	Status           string
-	EC2Attachment    []EC2Attachment
-	LambdaAttachment []LambdaAttachment
-	ECSAttachment    []string
+	Id                string
+	Description       *string
+	Type              string
+	ManagedByAWS      bool
+	Status            string
+	EC2Attachment     *EC2Attachment
+	LambdaAttachments []LambdaAttachment
+	ECSAttachment     []string
 }
 
 type EC2Attachment struct {
