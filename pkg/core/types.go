@@ -42,7 +42,7 @@ type NetworkInterface struct {
 	Status           string
 	EC2Attachment    *EC2Attachment
 	LambdaAttachment *LambdaAttachment
-	ECSAttachment    *string
+	ECSAttachment    *ECSAttachment
 }
 
 type EC2Attachment struct {
@@ -56,5 +56,15 @@ type LambdaAttachment struct {
 }
 
 type ECSAttachment struct {
-	ServiceName string
+	IsRemoved     bool
+	ServiceName   *string
+	ClusterName   *string
+	ContainerName *string
+	TaskArn       *string
+}
+
+type ELBAttachment struct {
+	IsRemoved bool
+	Name      string
+	Arn       *string
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	lambdaTypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"regexp"
@@ -35,6 +36,7 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 	}
 	ec2Client := ec2.NewFromConfig(cfg)
 	lambdaClient := lambda.NewFromConfig(cfg)
+	ecsClient := ecs.NewFromConfig(cfg)
 
 	securityGroups, sgErr := describeSecurityGroups(ec2Client, securityGroupIds)
 	if sgErr != nil {
@@ -62,6 +64,10 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 				if lambdaErr != nil {
 					return nil, lambdaErr
 				}
+				ecsAttachment, ecsErr := getECSAttachment(ecsClient, ifc)
+				if ecsErr != nil {
+					return nil, lambdaErr
+				}
 				nic := NetworkInterface{
 					Id:               *ifc.NetworkInterfaceId,
 					Description:      ifc.Description,
@@ -70,6 +76,7 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 					Status:           string(ifc.Status),
 					EC2Attachment:    getEC2Attachment(ifc),
 					LambdaAttachment: lambdaAttachment,
+					ECSAttachment:    ecsAttachment,
 				}
 				associations = append(associations, nic)
 			}
@@ -233,6 +240,83 @@ func getLambdaFunctionConfigByName(client *lambda.Client, fnName string) (*lambd
 	}
 
 	return function.Configuration, nil
+}
+
+func getECSAttachment(client *ecs.Client, eni ec2Types.NetworkInterface) (*ECSAttachment, error) {
+	var cluster, service *string
+	for _, tag := range eni.TagSet {
+		if tag.Key != nil && *tag.Key == "aws:ecs:clusterName" {
+			cluster = tag.Value
+			continue
+		}
+		if tag.Key != nil && *tag.Key == "aws:ecs:serviceName" {
+			service = tag.Value
+		}
+	}
+
+	taskArn, container, ecsErr := getTaskAndContainerInfo(client, eni, cluster, service)
+
+	if ecsErr != nil {
+		return nil, ecsErr
+	}
+
+	return &ECSAttachment{
+		IsRemoved:     taskArn == nil,
+		ClusterName:   cluster,
+		ServiceName:   service,
+		ContainerName: container,
+		TaskArn:       taskArn,
+	}, nil
+}
+
+func getTaskAndContainerInfo(client *ecs.Client, eni ec2Types.NetworkInterface, cluster, service *string) (*string, *string, error) {
+	if cluster != nil || service != nil {
+		var taskArn *string
+		var containerName *string
+		var nexToken *string
+		for {
+			tasks, err := client.ListTasks(context.TODO(), &ecs.ListTasksInput{
+				Cluster:     cluster,
+				ServiceName: service,
+				MaxResults:  aws.Int32(int32(100)), // use 100 to avoid looping for DescribeTasks
+				NextToken:   nexToken,
+			})
+
+			if err != nil {
+				return nil, nil, err
+			}
+
+			detailedTasks, taskDescribeErr := client.DescribeTasks(context.TODO(), &ecs.DescribeTasksInput{
+				Cluster: cluster,
+				Tasks:   tasks.TaskArns,
+			})
+
+			if taskDescribeErr != nil {
+				return nil, nil, taskDescribeErr
+			}
+
+		out:
+			for _, task := range detailedTasks.Tasks {
+				for _, container := range task.Containers {
+					for _, containerEni := range container.NetworkInterfaces {
+						if *eni.PrivateIpAddress == *containerEni.PrivateIpv4Address {
+							containerName = container.Name
+							taskArn = task.TaskArn
+							break out
+						}
+					}
+				}
+			}
+
+			if tasks.NextToken != nil {
+				nexToken = tasks.NextToken
+			} else {
+				break
+			}
+		}
+		return taskArn, containerName, nil
+	}
+	return nil, nil, nil
 }
 
 // Get the Security Group Rules which are referencing the Security Group

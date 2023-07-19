@@ -35,6 +35,8 @@ github.com/aws/aws-sdk-go-v2/internal/ini v1.3.35 h1:LWA+3kDM8ly001vJ1X1waCuLJdt
 github.com/aws/aws-sdk-go-v2/internal/ini v1.3.35/go.mod h1:0Eg1YjxE0Bhn56lx+SHJwCzhW+2JGtizsrx+lCqrfm0=
 github.com/aws/aws-sdk-go-v2/service/ec2 v1.102.0 h1:P4dyjm49F2kKws0FpouBC6fjVImACXKt752+CWa01lM=
 github.com/aws/aws-sdk-go-v2/service/ec2 v1.102.0/go.mod h1:tIctCeX9IbzsUTKHt53SVEcgyfxV2ElxJeEB+QUbc4M=
+github.com/aws/aws-sdk-go-v2/service/ecs v1.28.1 h1:PxWgrtfQvct60NjxSrFsSWG/Yg1HATRKP4IeUPiLlrE=
+github.com/aws/aws-sdk-go-v2/service/ecs v1.28.1/go.mod h1:eZBCsRjzc+ZX8x3h0beHOu+uxRWRwnEHzzvDgKy9v0E=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.28 h1:bkRyG4a929RCnpVSTvLM2j/T4ls015ZhhYApbmYs15s=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.28/go.mod h1:jj7znCIg05jXlaGBlFMGP8+7UN3VtCkRBG2spnmRQkU=
 github.com/aws/aws-sdk-go-v2/service/lambda v1.37.1 h1:BRdW2JcxZSsen77Y0WoWIWY4+H9EXT55uEPWZKIcDHY=

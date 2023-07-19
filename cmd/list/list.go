@@ -57,7 +57,7 @@ func runList(cmd *cobra.Command, args []string) {
 }
 
 func printSecurityGroupUsage(usage core.SecurityGroup) {
-	pterm.DefaultSection.Printf("%s(%s)", usage.Name, usage.Id)
+	pterm.DefaultSection.Printf("%s (%s)", usage.Name, usage.Id)
 	reasons := getReasonsAgainstRemoval(usage)
 	bulletList := []pterm.BulletListItem{
 		{Level: 0, Text: fmt.Sprintf("Description: %s", usage.Description)},
@@ -94,10 +94,38 @@ func printSecurityGroupUsage(usage core.SecurityGroup) {
 						eni.LambdaAttachment.Name, *eni.LambdaAttachment.Arn)})
 				}
 			}
+			if eni.ECSAttachment != nil {
+				bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: "Used by ECS Service:"})
+
+				service := "unknown"
+				if eni.ECSAttachment.ServiceName != nil {
+					service = *eni.ECSAttachment.ServiceName
+				}
+
+				cluster := "unknown"
+				if eni.ECSAttachment.ClusterName != nil {
+					cluster = *eni.ECSAttachment.ClusterName
+				}
+
+				taskArn := "unknown"
+				if eni.ECSAttachment.TaskArn != nil {
+					taskArn = *eni.ECSAttachment.TaskArn
+				}
+
+				if eni.ECSAttachment.IsRemoved {
+					bulletList = append(bulletList, pterm.BulletListItem{Level: 3,
+						Text: fmt.Sprintf("%s\\%s Note: the task was already removed. Please try to remove the ENI manually!",
+							cluster, service)})
+				} else {
+					bulletList = append(bulletList, pterm.BulletListItem{Level: 3, Text: fmt.Sprintf("%s\\%s (%s)",
+						cluster, service, taskArn)})
+				}
+			}
 		}
 	}
 	if len(usage.RuleReferences) > 0 {
-		bulletList = append(bulletList, pterm.BulletListItem{Level: 0, Text: "Referenced by the following Security Groups as an Inbound/Outbound rule:"})
+		bulletList = append(bulletList, pterm.BulletListItem{Level: 0,
+			Text: "Referenced by the following Security Groups as an Inbound/Outbound rule:"})
 		for _, ruleRef := range usage.RuleReferences {
 			bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("%s", ruleRef)})
 		}
