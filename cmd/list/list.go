@@ -56,11 +56,11 @@ func runList(cmd *cobra.Command, args []string) {
 	}
 }
 
-func printSecurityGroupUsage(usage core.SecurityGroupUsage) {
-	pterm.DefaultSection.Printf("%s(%s)", usage.SecurityGroupName, usage.SecurityGroupId)
+func printSecurityGroupUsage(usage core.SecurityGroup) {
+	pterm.DefaultSection.Printf("%s(%s)", usage.Name, usage.Id)
 	reasons := getReasonsAgainstRemoval(usage)
 	bulletList := []pterm.BulletListItem{
-		{Level: 0, Text: fmt.Sprintf("Description: %s", usage.SecurityGroupDescription)},
+		{Level: 0, Text: fmt.Sprintf("Description: %s", usage.Description)},
 		{Level: 0, Text: fmt.Sprintf("Can be Removed: %t", usage.CanBeRemoved())},
 	}
 	if len(reasons) > 0 {
@@ -83,17 +83,22 @@ func printSecurityGroupUsage(usage core.SecurityGroupUsage) {
 				bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: "Attached to EC2 instance:"})
 				bulletList = append(bulletList, pterm.BulletListItem{Level: 3, Text: fmt.Sprintf("%s", eni.EC2Attachment.InstanceId)})
 			}
-			if len(eni.LambdaAttachments) > 0 {
-				bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: "Used by Lambda Function(s):"})
-				for _, lambdaAttachment := range eni.LambdaAttachments {
-					bulletList = append(bulletList, pterm.BulletListItem{Level: 3, Text: fmt.Sprintf("%s(%s)", lambdaAttachment.Name, lambdaAttachment.Arn)})
+			if eni.LambdaAttachment != nil {
+				bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: "Used by Lambda Function:"})
+				if eni.LambdaAttachment.IsRemoved {
+					bulletList = append(bulletList, pterm.BulletListItem{Level: 3, Text: fmt.Sprintf(
+						"%s - Note: This function was already removed. Please wait 15-20 minutes for the ENI to be removed by AWS.",
+						eni.LambdaAttachment.Name)})
+				} else {
+					bulletList = append(bulletList, pterm.BulletListItem{Level: 3, Text: fmt.Sprintf("%s (%s)",
+						eni.LambdaAttachment.Name, *eni.LambdaAttachment.Arn)})
 				}
 			}
 		}
 	}
-	if len(usage.SecurityGroupRuleReferences) > 0 {
+	if len(usage.RuleReferences) > 0 {
 		bulletList = append(bulletList, pterm.BulletListItem{Level: 0, Text: "Referenced by the following Security Groups as an Inbound/Outbound rule:"})
-		for _, ruleRef := range usage.SecurityGroupRuleReferences {
+		for _, ruleRef := range usage.RuleReferences {
 			bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("%s", ruleRef)})
 		}
 	}
@@ -103,7 +108,7 @@ func printSecurityGroupUsage(usage core.SecurityGroupUsage) {
 	}
 }
 
-func getReasonsAgainstRemoval(usage core.SecurityGroupUsage) []string {
+func getReasonsAgainstRemoval(usage core.SecurityGroup) []string {
 	reasons := make([]string, 0)
 	if !usage.CanBeRemoved() {
 		if usage.Default {
@@ -112,7 +117,7 @@ func getReasonsAgainstRemoval(usage core.SecurityGroupUsage) []string {
 		if len(usage.UsedBy) > 0 {
 			reasons = append(reasons, "Security Group is used by an ENI")
 		}
-		if len(usage.SecurityGroupRuleReferences) > 0 {
+		if len(usage.RuleReferences) > 0 {
 			reasons = append(reasons, "Security Group is references by a Security Group Rule")
 		}
 	}
