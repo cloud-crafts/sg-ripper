@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	lambdaTypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/aws/smithy-go"
@@ -233,20 +232,21 @@ func getLambdaAttachment(client *lambda.Client, eni ec2Types.NetworkInterface, c
 	return nil, nil
 }
 
-// Get the configuration for a Lambda function
+// Get the configuration for a Lambda function. If the function does not exist, the returned value will be nil
 func getLambdaFunctionConfigByName(client *lambda.Client, fnName string) (*lambdaTypes.FunctionConfiguration, error) {
 	fnInput := lambda.GetFunctionInput{FunctionName: &fnName}
 
-	function, fnErr := client.GetFunction(context.TODO(), &fnInput)
-	if fnErr != nil {
-		var opErr *smithy.APIError
-		if errors.As(fnErr, opErr) {
-			switch (*opErr).(type) {
-			case *types.ResourceNotFoundException:
+	function, err := client.GetFunction(context.TODO(), &fnInput)
+	if err != nil {
+		// Handle error in case the function does not exist. Do not return this error to the caller
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) {
+			switch apiErr.(type) {
+			case *lambdaTypes.ResourceNotFoundException:
 				return nil, nil
 			}
 		}
-		return nil, fnErr
+		return nil, err
 	}
 
 	return function.Configuration, nil
