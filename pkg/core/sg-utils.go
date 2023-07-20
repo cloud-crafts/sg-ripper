@@ -2,13 +2,16 @@ package core
 
 import (
 	"context"
+	"errors"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	lambdaTypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
+	"github.com/aws/smithy-go"
 	"regexp"
 )
 
@@ -236,6 +239,13 @@ func getLambdaFunctionConfigByName(client *lambda.Client, fnName string) (*lambd
 
 	function, fnErr := client.GetFunction(context.TODO(), &fnInput)
 	if fnErr != nil {
+		var opErr *smithy.APIError
+		if errors.As(fnErr, opErr) {
+			switch (*opErr).(type) {
+			case *types.ResourceNotFoundException:
+				return nil, nil
+			}
+		}
 		return nil, fnErr
 	}
 
@@ -260,17 +270,20 @@ func getECSAttachment(client *ecs.Client, eni ec2Types.NetworkInterface) (*ECSAt
 		return nil, ecsErr
 	}
 
-	return &ECSAttachment{
-		IsRemoved:     taskArn == nil,
-		ClusterName:   cluster,
-		ServiceName:   service,
-		ContainerName: container,
-		TaskArn:       taskArn,
-	}, nil
+	if cluster != nil && service != nil {
+		return &ECSAttachment{
+			IsRemoved:     taskArn == nil,
+			ClusterName:   cluster,
+			ServiceName:   service,
+			ContainerName: container,
+			TaskArn:       taskArn,
+		}, nil
+	}
+	return nil, nil
 }
 
 func getTaskAndContainerInfo(client *ecs.Client, eni ec2Types.NetworkInterface, cluster, service *string) (*string, *string, error) {
-	if cluster != nil || service != nil {
+	if cluster != nil && service != nil {
 		var taskArn *string
 		var containerName *string
 		var nexToken *string

@@ -1,19 +1,12 @@
 locals {
-  ecs_base       = "ecs-sg-ripper"
   container_name = "ecsdemo-frontend"
   container_port = 3000
-
-  tags = {
-    Name        = local.ecs_base
-    Terraform   = "true"
-    Environment = "dev"
-  }
 }
 
 resource "aws_security_group" "alb_sg" {
-  name        = "alb-sg"
+  name        = "${var.name_prefix}-alb-sg"
   description = "Security Group attached to the sg-ripper-test-alb."
-  vpc_id      = module.vpc.vpc_id
+  vpc_id      = var.vpc_id
 
   ingress {
     from_port   = 80
@@ -29,21 +22,18 @@ resource "aws_security_group" "alb_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = "sg-ripper-lambda-sg"
-  }
+  tags = var.tags
 }
 
 module "alb" {
-  source  = "terraform-aws-modules/alb/aws"
-  version = "~> 8.0"
+  source = "terraform-aws-modules/alb/aws"
 
-  name = local.ecs_base
+  name = "${var.name_prefix}-alb"
 
   load_balancer_type = "application"
 
-  vpc_id          = module.vpc.vpc_id
-  subnets         = module.vpc.public_subnets
+  vpc_id          = var.vpc_id
+  subnets         = var.public_subnets
   security_groups = [aws_security_group.alb_sg.id]
 
   http_tcp_listeners = [
@@ -56,20 +46,20 @@ module "alb" {
 
   target_groups = [
     {
-      name             = "${local.ecs_base}-${local.container_name}"
+      name             = "${var.name_prefix}-${local.container_name}"
       backend_protocol = "HTTP"
       backend_port     = local.container_port
       target_type      = "ip"
     },
   ]
 
-  tags = local.tags
+  tags = var.tags
 }
 
 module "ecs" {
   source = "terraform-aws-modules/ecs/aws"
 
-  cluster_name = local.ecs_base
+  cluster_name = var.name_prefix
 
   services = {
     ecsdemo-frontend = {
@@ -107,7 +97,7 @@ module "ecs" {
         }
       }
 
-      subnet_ids = module.vpc.private_subnets
+      subnet_ids = var.private_subnets
       security_group_rules = {
         alb_ingress_3000 = {
           type                     = "ingress"
@@ -128,5 +118,5 @@ module "ecs" {
     }
   }
 
-  tags = local.tags
+  tags = var.tags
 }
