@@ -121,6 +121,17 @@ func printSecurityGroupUsage(usage core.SecurityGroup) {
 						cluster, service, taskArn)})
 				}
 			}
+			if eni.ELBAttachment != nil {
+				bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: "Used by Elastic Load Balancer:"})
+				if eni.ELBAttachment.IsRemoved {
+					bulletList = append(bulletList, pterm.BulletListItem{Level: 3,
+						Text: fmt.Sprintf("%s Note: the load balancer was removed. Please try to remove the ENI manually!",
+							eni.ELBAttachment.Name)})
+				} else {
+					bulletList = append(bulletList, pterm.BulletListItem{Level: 3, Text: fmt.Sprintf("%s (%s)",
+						eni.ELBAttachment.Name, *eni.ELBAttachment.Arn)})
+				}
+			}
 		}
 	}
 	if len(usage.RuleReferences) > 0 {

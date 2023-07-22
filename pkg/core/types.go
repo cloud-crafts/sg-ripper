@@ -43,6 +43,7 @@ type NetworkInterface struct {
 	EC2Attachment    *EC2Attachment
 	LambdaAttachment *LambdaAttachment
 	ECSAttachment    *ECSAttachment
+	ELBAttachment    *ELBAttachment
 }
 
 type EC2Attachment struct {

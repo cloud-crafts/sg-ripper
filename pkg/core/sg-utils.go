@@ -3,11 +3,13 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	lambdaTypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/aws/smithy-go"
@@ -39,6 +41,7 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 	ec2Client := ec2.NewFromConfig(cfg)
 	lambdaClient := lambda.NewFromConfig(cfg)
 	ecsClient := ecs.NewFromConfig(cfg)
+	elbClient := elasticloadbalancingv2.NewFromConfig(cfg)
 
 	securityGroups, sgErr := describeSecurityGroups(ec2Client, securityGroupIds)
 	if sgErr != nil {
@@ -69,14 +72,18 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 				if cachedNic, ok := nicCache[*ifc.NetworkInterfaceId]; ok {
 					associations = append(associations, cachedNic)
 				} else {
-					lambdaAttachment, lambdaErr := getLambdaAttachment(lambdaClient, ifc)
-					if lambdaErr != nil {
-						return nil, lambdaErr
+					lambdaAttachment, err := getLambdaAttachment(lambdaClient, ifc)
+					if err != nil {
+						return nil, err
 					}
-					ecsAttachment, ecsErr := getECSAttachment(ecsClient, ifc)
-					if ecsErr != nil {
-						return nil, lambdaErr
+
+					ecsAttachment, err := getECSAttachment(ecsClient, ifc)
+					if err != nil {
+						return nil, err
 					}
+
+					elbAttachment, err := getELBAttachment(elbClient, ifc)
+
 					nic := NetworkInterface{
 						Id:               *ifc.NetworkInterfaceId,
 						Description:      ifc.Description,
@@ -86,6 +93,7 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 						EC2Attachment:    getEC2Attachment(ifc),
 						LambdaAttachment: lambdaAttachment,
 						ECSAttachment:    ecsAttachment,
+						ELBAttachment:    elbAttachment,
 					}
 
 					// Add the new interface to the cache
@@ -331,6 +339,32 @@ func getTaskAndContainerInfo(client *ecs.Client, eni ec2Types.NetworkInterface, 
 		return taskArn, containerName, nil
 	}
 	return nil, nil, nil
+}
+
+func getELBAttachment(client *elasticloadbalancingv2.Client, eni ec2Types.NetworkInterface) (*ELBAttachment, error) {
+	regex := regexp.MustCompile("ELB app/(?P<albName>.+)/(?P<albId>([a-z]|[0-9])+)")
+	if eni.InterfaceType == ec2Types.NetworkInterfaceTypeInterface && eni.Description != nil {
+		match := regex.FindStringSubmatch(*eni.Description)
+		if len(match) > 0 {
+			albName := match[regex.SubexpIndex("albName")]
+			fmt.Println(albName)
+
+			loadBalancers, err := client.DescribeLoadBalancers(context.TODO(),
+				&elasticloadbalancingv2.DescribeLoadBalancersInput{Names: []string{albName}})
+			if err != nil {
+				return nil, err
+			}
+			for _, elb := range loadBalancers.LoadBalancers {
+				// It is expected that we will have only one load balancer as a result
+				return &ELBAttachment{
+					IsRemoved: elb.LoadBalancerArn == nil,
+					Name:      albName,
+					Arn:       elb.LoadBalancerArn,
+				}, nil
+			}
+		}
+	}
+	return nil, nil
 }
 
 // Get the Security Group Rules which are referencing the Security Group

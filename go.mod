@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.18.27
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.102.0
 	github.com/aws/aws-sdk-go-v2/service/ecs v1.28.1
+	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.19.14
 	github.com/aws/aws-sdk-go-v2/service/lambda v1.37.1
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.37.0
 	github.com/aws/smithy-go v1.13.5
