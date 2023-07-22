@@ -32,4 +32,10 @@ remote_state {
 inputs = {
   aws_region  = local.aws_region
   aws_profile = local.aws_profile
+
+  tags = {
+    Terraform   = "true"
+    Environment = "dev"
+    Project     = "sg-ripper"
+  }
 }

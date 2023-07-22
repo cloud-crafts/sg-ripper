@@ -32,8 +32,8 @@ func (c *AwsLambdaClient) GetLambdaAttachment(eni ec2Types.NetworkInterface) (*c
 		if len(match) > 0 {
 			fnName := match[regex.SubexpIndex("fnName")]
 
-			if cachedElb, ok := c.cache[fnName]; ok {
-				return cachedElb, nil
+			if cachedFn, ok := c.cache[fnName]; ok {
+				return cachedFn, nil
 			}
 
 			fnConfig, fnErr := c.getLambdaFunctionConfigByName(c.client, fnName)

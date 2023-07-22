@@ -133,6 +133,17 @@ func printSecurityGroupUsage(usage types.SecurityGroup) {
 						eni.ELBAttachment.Name, *eni.ELBAttachment.Arn)})
 				}
 			}
+			if eni.VpceAttachment != nil {
+				bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: "Used by VPC Endpoint:"})
+				if eni.VpceAttachment.IsRemoved {
+					bulletList = append(bulletList, pterm.BulletListItem{Level: 3,
+						Text: fmt.Sprintf("%s Note: the VPC Endpoint was removed. Please try to remove the ENI manually!",
+							*eni.VpceAttachment.Id)})
+				} else {
+					bulletList = append(bulletList, pterm.BulletListItem{Level: 3, Text: fmt.Sprintf("%s (%s)",
+						*eni.VpceAttachment.ServiceName, *eni.VpceAttachment.Id)})
+				}
+			}
 		}
 	}
 	if len(usage.RuleReferences) > 0 {

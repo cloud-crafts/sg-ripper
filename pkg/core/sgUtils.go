@@ -56,39 +56,45 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 	for _, sg := range securityGroups {
 		associatedInterfaces := getAssociatedNetworkInterfaces(sg, networkInterfaces)
 		associations := make([]*types.NetworkInterface, 0)
-		for _, ifc := range associatedInterfaces {
-			if ifc.NetworkInterfaceId != nil {
+		for _, eni := range associatedInterfaces {
+			if eni.NetworkInterfaceId != nil {
 
 				// Check if Network Interface is already in the cache to avoid computing multiple times which resources
 				// are using it
-				if cachedNic, ok := nicCache[*ifc.NetworkInterfaceId]; ok {
+				if cachedNic, ok := nicCache[*eni.NetworkInterfaceId]; ok {
 					associations = append(associations, cachedNic)
 				} else {
-					lambdaAttachment, err := awsLambdaClient.GetLambdaAttachment(ifc)
+					lambdaAttachment, err := awsLambdaClient.GetLambdaAttachment(eni)
 					if err != nil {
 						return nil, err
 					}
 
-					ecsAttachment, err := ecsClient.GetECSAttachment(ifc)
+					ecsAttachment, err := ecsClient.GetECSAttachment(eni)
 					if err != nil {
 						return nil, err
 					}
 
-					elbAttachment, err := awsElbClient.GetELBAttachment(ifc)
+					elbAttachment, err := awsElbClient.GetELBAttachment(eni)
+					if err != nil {
+						return nil, err
+					}
+
+					vpceAttachment, err := ec2Client.GetVpceAttachment(eni)
 					if err != nil {
 						return nil, err
 					}
 
 					nic := types.NetworkInterface{
-						Id:               *ifc.NetworkInterfaceId,
-						Description:      ifc.Description,
-						Type:             string(ifc.InterfaceType),
-						ManagedByAWS:     *ifc.RequesterManaged,
-						Status:           string(ifc.Status),
-						EC2Attachment:    getEC2Attachment(ifc),
+						Id:               *eni.NetworkInterfaceId,
+						Description:      eni.Description,
+						Type:             string(eni.InterfaceType),
+						ManagedByAWS:     *eni.RequesterManaged,
+						Status:           string(eni.Status),
+						EC2Attachment:    getEC2Attachment(eni),
 						LambdaAttachment: lambdaAttachment,
 						ECSAttachment:    ecsAttachment,
 						ELBAttachment:    elbAttachment,
+						VpceAttachment:   vpceAttachment,
 					}
 
 					// Add the new interface to the cache
@@ -119,9 +125,9 @@ func getAssociatedNetworkInterfaces(sg ec2Types.SecurityGroup, networkInterfaces
 }
 
 // Get the IDs of the EC2 instances attached to the Network Interface
-func getEC2Attachment(ifc ec2Types.NetworkInterface) *types.EC2Attachment {
+func getEC2Attachment(ifc ec2Types.NetworkInterface) *types.Ec2Attachment {
 	if ifc.Attachment != nil && ifc.Attachment.InstanceId != nil {
-		return &types.EC2Attachment{InstanceId: *ifc.Attachment.InstanceId}
+		return &types.Ec2Attachment{InstanceId: *ifc.Attachment.InstanceId}
 	}
 	return nil
 }

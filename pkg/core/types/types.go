@@ -40,13 +40,14 @@ type NetworkInterface struct {
 	Type             string
 	ManagedByAWS     bool
 	Status           string
-	EC2Attachment    *EC2Attachment
+	EC2Attachment    *Ec2Attachment
 	LambdaAttachment *LambdaAttachment
-	ECSAttachment    *ECSAttachment
-	ELBAttachment    *ELBAttachment
+	ECSAttachment    *EcsAttachment
+	ELBAttachment    *ElbAttachment
+	VpceAttachment   *VpceAttachment
 }
 
-type EC2Attachment struct {
+type Ec2Attachment struct {
 	InstanceId string
 }
 
@@ -56,7 +57,7 @@ type LambdaAttachment struct {
 	Arn       *string
 }
 
-type ECSAttachment struct {
+type EcsAttachment struct {
 	IsRemoved     bool
 	ServiceName   *string
 	ClusterName   *string
@@ -64,8 +65,14 @@ type ECSAttachment struct {
 	TaskArn       *string
 }
 
-type ELBAttachment struct {
+type ElbAttachment struct {
 	IsRemoved bool
 	Name      string
 	Arn       *string
+}
+
+type VpceAttachment struct {
+	IsRemoved   bool
+	Id          *string
+	ServiceName *string
 }

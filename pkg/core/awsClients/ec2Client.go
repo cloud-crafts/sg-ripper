@@ -5,17 +5,21 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"regexp"
+	coreTypes "sg-ripper/pkg/core/types"
 )
 
 const MaxResults = 1000
 
 type AwsEc2Client struct {
-	client *ec2.Client
+	client    *ec2.Client
+	vpceCache map[string]*coreTypes.VpceAttachment
 }
 
 func NewAwsEc2Client(cfg aws.Config) *AwsEc2Client {
 	return &AwsEc2Client{
-		client: ec2.NewFromConfig(cfg),
+		client:    ec2.NewFromConfig(cfg),
+		vpceCache: make(map[string]*coreTypes.VpceAttachment),
 	}
 }
 
@@ -96,4 +100,43 @@ func (c *AwsEc2Client) DescribeNetworkInterfaces(securityGroupIds []string) ([]e
 		}
 	}
 	return networkInterfaces, nil
+}
+
+func (c *AwsEc2Client) GetVpceAttachment(eni ec2Types.NetworkInterface) (*coreTypes.VpceAttachment, error) {
+	regex := regexp.MustCompile("VPC Endpoint Interface (?P<vpceId>vpce-([a-z]|[0-9])+)")
+	if eni.InterfaceType == ec2Types.NetworkInterfaceTypeVpcEndpoint && eni.Description != nil {
+		match := regex.FindStringSubmatch(*eni.Description)
+
+		if len(match) > 0 {
+			vpceId := match[regex.SubexpIndex("vpceId")]
+
+			if cachedVpce, ok := c.vpceCache[vpceId]; ok {
+				return cachedVpce, nil
+			}
+
+			vpceResponse, err := c.client.DescribeVpcEndpoints(context.TODO(), &ec2.DescribeVpcEndpointsInput{
+				Filters: []ec2Types.Filter{{
+					Name:   aws.String("vpc-endpoint-id"),
+					Values: []string{vpceId},
+				}},
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			for _, vpce := range vpceResponse.VpcEndpoints {
+				attachment := coreTypes.VpceAttachment{
+					IsRemoved:   vpce.VpcEndpointId == nil,
+					Id:          vpce.VpcEndpointId,
+					ServiceName: vpce.ServiceName,
+				}
+
+				c.vpceCache[*vpce.VpcEndpointId] = &attachment
+
+				// It is expected that we will have only one load balancer as a result
+				return &attachment, nil
+			}
+		}
+	}
+	return nil, nil
 }

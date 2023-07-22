@@ -5,22 +5,22 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
-	"sg-ripper/pkg/core/types"
+	coreTypes "sg-ripper/pkg/core/types"
 )
 
 type AwsEcsClient struct {
 	client *ecs.Client
-	cache  map[string]*types.ECSAttachment
+	cache  map[string]*coreTypes.EcsAttachment
 }
 
 func NewAwsEcsClient(cfg aws.Config) *AwsEcsClient {
 	return &AwsEcsClient{
 		client: ecs.NewFromConfig(cfg),
-		cache:  make(map[string]*types.ECSAttachment),
+		cache:  make(map[string]*coreTypes.EcsAttachment),
 	}
 }
 
-func (c *AwsEcsClient) GetECSAttachment(eni ec2Types.NetworkInterface) (*types.ECSAttachment, error) {
+func (c *AwsEcsClient) GetECSAttachment(eni ec2Types.NetworkInterface) (*coreTypes.EcsAttachment, error) {
 	var cluster, service *string
 	for _, tag := range eni.TagSet {
 		if tag.Key != nil && *tag.Key == "aws:ecs:clusterName" {
@@ -39,7 +39,7 @@ func (c *AwsEcsClient) GetECSAttachment(eni ec2Types.NetworkInterface) (*types.E
 	}
 
 	if cluster != nil && service != nil {
-		return &types.ECSAttachment{
+		return &coreTypes.EcsAttachment{
 			IsRemoved:     taskArn == nil,
 			ClusterName:   cluster,
 			ServiceName:   service,
