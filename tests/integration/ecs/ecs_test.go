@@ -2,12 +2,9 @@ package ecs
 
 import (
 	"context"
-	"encoding/json"
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/stretchr/testify/require"
-	"io"
 	"sg-ripper/pkg/core"
 	"sg-ripper/tests/integration/common"
 	"testing"
@@ -21,50 +18,35 @@ const ObjectKey = "sg-ripper/ecs/terraform.tfstate"
 var state *common.TfState
 
 func TestMain(m *testing.M) {
-	state = fetchTfState()
+	tfState, err := fetchTfState()
+	if err != nil {
+		panic(err)
+	}
+
+	state = tfState
+
 	_ = m.Run()
 }
 
-func fetchTfState() *common.TfState {
-	cfg, configErr := config.LoadDefaultConfig(context.TODO(), config.WithRegion(Region), config.WithSharedConfigProfile(Profile))
-	if configErr != nil {
-		panic(configErr)
+func fetchTfState() (*common.TfState, error) {
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(Region), config.WithSharedConfigProfile(Profile))
+	if err != nil {
+		return nil, err
 	}
 
 	client := s3.NewFromConfig(cfg)
 
-	// Read file from S3 bucket
-	result, getErr := client.GetObject(context.TODO(), &s3.GetObjectInput{
-		Bucket: aws.String(BucketName),
-		Key:    aws.String(ObjectKey),
-	})
-
-	if getErr != nil {
-		panic(getErr)
+	if tfState, err := common.ReadTfStateFromS3(client, BucketName, ObjectKey); err != nil {
+		return nil, err
+	} else {
+		return tfState, nil
 	}
-
-	stateBytes, _ := io.ReadAll(result.Body)
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			panic(err)
-		}
-	}(result.Body)
-
-	var tfState common.TfState
-	parseErr := json.Unmarshal(stateBytes, &tfState)
-
-	if parseErr != nil {
-		panic(parseErr)
-	}
-
-	return &tfState
 }
 
-func TestAlbSg(t *testing.T) {
+func TestAlbAttachment(t *testing.T) {
 
-	albOutput := state.Outputs["alb_sg"]
-	sgId := albOutput.Value.(string)
+	albOut := state.Outputs["alb_sg"]
+	sgId := albOut.Value.(string)
 
 	securityGroups, err := core.ListSecurityGroups([]string{sgId}, core.Filters{Status: core.All}, Region, Profile)
 
@@ -72,6 +54,33 @@ func TestAlbSg(t *testing.T) {
 	require.NotEmpty(t, securityGroups)
 	require.Equal(t, 1, len(securityGroups))
 
-	albSg := securityGroups[0]
-	require.NotEmpty(t, albSg.UsedBy)
+	sg := securityGroups[0]
+
+	require.Equal(t, "vpc-alb-sg", sg.Name)
+	require.NotEmpty(t, sg.UsedBy)
+	require.GreaterOrEqual(t, 2, len(sg.UsedBy))
+}
+
+func TestECSTaskAttachment(t *testing.T) {
+
+	output := state.Outputs["container_sg_id"]
+	sgId := output.Value.(string)
+
+	securityGroups, err := core.ListSecurityGroups([]string{sgId}, core.Filters{Status: core.All}, Region, Profile)
+
+	require.NoError(t, err)
+	require.NotEmpty(t, securityGroups)
+	require.Equal(t, 1, len(securityGroups))
+
+	sg := securityGroups[0]
+
+	require.NotEmpty(t, sg.UsedBy)
+	require.GreaterOrEqual(t, 1, len(sg.UsedBy))
+
+	eni := sg.UsedBy[0]
+	require.NotNil(t, eni)
+	require.NotNil(t, eni.ECSAttachment)
+	require.NotNil(t, eni.ECSAttachment.TaskArn)
+	require.NotNil(t, eni.ECSAttachment.ServiceName)
+	require.NotNil(t, eni.ECSAttachment.ClusterName)
 }

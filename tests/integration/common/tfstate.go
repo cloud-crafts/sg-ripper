@@ -1,6 +1,12 @@
 package common
 
-import "encoding/json"
+import (
+	"context"
+	"encoding/json"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"io"
+)
 
 type TfState struct {
 	Resources        []Resource        `json:"resources"`
@@ -12,17 +18,37 @@ type TfState struct {
 	Lineage          string            `json:"lineage"`
 }
 
-type Resource struct {
-	Module    string    `json:"module"`
-	Mode      string    `json:"mode"`
-	Type      string    `json:"type"`
-	Name      string    `json:"name"`
-	Each      string    `json:"each"`
-	Provider  string    `json:"provider"`
-	Instances Instances `json:"instances"`
+func ReadTfStateFromS3(client *s3.Client, bucketName, objectKey string) (*TfState, error) {
+	objectOutput, err := client.GetObject(context.TODO(), &s3.GetObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(objectKey),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	stateBytes, err := io.ReadAll(objectOutput.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var tfState TfState
+	if err = json.Unmarshal(stateBytes, &tfState); err != nil {
+		return nil, err
+	}
+
+	return &tfState, nil
 }
 
-type Instances []Instance
+type Resource struct {
+	Module    string     `json:"module"`
+	Mode      string     `json:"mode"`
+	Type      string     `json:"type"`
+	Name      string     `json:"name"`
+	Each      string     `json:"each"`
+	Provider  string     `json:"provider"`
+	Instances []Instance `json:"instances"`
+}
 
 type Instance struct {
 	IndexKey       json.RawMessage `json:"index_key"`
