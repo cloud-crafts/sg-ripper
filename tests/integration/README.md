@@ -1,9 +1,5 @@
 # sg-ripper - Integration Tests
 
-Integration tests for `sg-ripper` rely on the existence of an AWS account. 
-
-**Running these tests will cost money in terms of AWS costs!**
-
 ## Run a Subset of Integration Tests
 
 In order to run a subset of integration tests, first we have to provision the infrastructure for it.
