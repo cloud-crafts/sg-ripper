@@ -55,32 +55,44 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 		return nil, ifcErr
 	}
 
-	lambdaAttachmentCache := make(map[string]*LambdaAttachment)
+	nicCache := make(map[string]*NetworkInterface)
+
 	usage := make([]SecurityGroup, 0)
 	for _, sg := range securityGroups {
 		associatedInterfaces := getAssociatedNetworkInterfaces(sg, networkInterfaces)
-		associations := make([]NetworkInterface, 0)
+		associations := make([]*NetworkInterface, 0)
 		for _, ifc := range associatedInterfaces {
 			if ifc.NetworkInterfaceId != nil {
-				lambdaAttachment, lambdaErr := getLambdaAttachment(lambdaClient, ifc, lambdaAttachmentCache)
-				if lambdaErr != nil {
-					return nil, lambdaErr
+
+				// Check if Network Interface is already in the cache to avoid computing multiple times which resources
+				// are using it
+				if cachedNic, ok := nicCache[*ifc.NetworkInterfaceId]; ok {
+					associations = append(associations, cachedNic)
+				} else {
+					lambdaAttachment, lambdaErr := getLambdaAttachment(lambdaClient, ifc)
+					if lambdaErr != nil {
+						return nil, lambdaErr
+					}
+					ecsAttachment, ecsErr := getECSAttachment(ecsClient, ifc)
+					if ecsErr != nil {
+						return nil, lambdaErr
+					}
+					nic := NetworkInterface{
+						Id:               *ifc.NetworkInterfaceId,
+						Description:      ifc.Description,
+						Type:             string(ifc.InterfaceType),
+						ManagedByAWS:     *ifc.RequesterManaged,
+						Status:           string(ifc.Status),
+						EC2Attachment:    getEC2Attachment(ifc),
+						LambdaAttachment: lambdaAttachment,
+						ECSAttachment:    ecsAttachment,
+					}
+
+					// Add the new interface to the cache
+					nicCache[nic.Id] = &nic
+
+					associations = append(associations, &nic)
 				}
-				ecsAttachment, ecsErr := getECSAttachment(ecsClient, ifc)
-				if ecsErr != nil {
-					return nil, lambdaErr
-				}
-				nic := NetworkInterface{
-					Id:               *ifc.NetworkInterfaceId,
-					Description:      ifc.Description,
-					Type:             string(ifc.InterfaceType),
-					ManagedByAWS:     *ifc.RequesterManaged,
-					Status:           string(ifc.Status),
-					EC2Attachment:    getEC2Attachment(ifc),
-					LambdaAttachment: lambdaAttachment,
-					ECSAttachment:    ecsAttachment,
-				}
-				associations = append(associations, nic)
 			}
 		}
 		usage = append(usage, *NewSecurityGroup(*sg.GroupName, *sg.GroupId, *sg.Description, associations,
@@ -191,18 +203,12 @@ func getEC2Attachment(ifc ec2Types.NetworkInterface) *EC2Attachment {
 }
 
 // Get the Lambda Function which is using the ENI
-func getLambdaAttachment(client *lambda.Client, eni ec2Types.NetworkInterface, cache map[string]*LambdaAttachment) (*LambdaAttachment, error) {
+func getLambdaAttachment(client *lambda.Client, eni ec2Types.NetworkInterface) (*LambdaAttachment, error) {
 	regex := regexp.MustCompile("AWS Lambda VPC ENI-(?P<fnName>.+)-([a-z]|[0-9]){8}-(([a-z]|[0-9]){4}-){3}([a-z]|[0-9]){12}")
 	if eni.InterfaceType == ec2Types.NetworkInterfaceTypeLambda && eni.Description != nil {
 		match := regex.FindStringSubmatch(*eni.Description)
 		if len(match) > 0 {
 			fnName := match[regex.SubexpIndex("fnName")]
-
-			// Check the cache first in order to avoid calling the AWS API in case the function configuration was
-			// already fetched
-			if fnConfig, ok := cache[fnName]; ok {
-				return fnConfig, nil
-			}
 
 			fnConfig, fnErr := getLambdaFunctionConfigByName(client, fnName)
 			if fnErr != nil {
@@ -222,10 +228,6 @@ func getLambdaAttachment(client *lambda.Client, eni ec2Types.NetworkInterface, c
 					IsRemoved: true,
 				}
 			}
-
-			// Update the cache with the new Lambda function configuration
-			cache[fnName] = lambdaAttachment
-
 			return lambdaAttachment, nil
 		}
 	}
@@ -284,8 +286,7 @@ func getECSAttachment(client *ecs.Client, eni ec2Types.NetworkInterface) (*ECSAt
 
 func getTaskAndContainerInfo(client *ecs.Client, eni ec2Types.NetworkInterface, cluster, service *string) (*string, *string, error) {
 	if cluster != nil && service != nil {
-		var taskArn *string
-		var containerName *string
+		var taskArn, containerName *string
 		var nexToken *string
 		for {
 			tasks, err := client.ListTasks(context.TODO(), &ecs.ListTasksInput{

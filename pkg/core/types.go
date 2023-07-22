@@ -5,12 +5,12 @@ type SecurityGroup struct {
 	Id             string
 	Description    string
 	Default        bool
-	UsedBy         []NetworkInterface
+	UsedBy         []*NetworkInterface
 	RuleReferences []string
 	VpcId          string
 }
 
-func NewSecurityGroup(name string, id string, description string, usedBy []NetworkInterface, ruleReferences []string,
+func NewSecurityGroup(name string, id string, description string, usedBy []*NetworkInterface, ruleReferences []string,
 	vpcId string) *SecurityGroup {
 	return &SecurityGroup{
 		Name:           name,
