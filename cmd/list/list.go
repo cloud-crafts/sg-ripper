@@ -5,6 +5,7 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	"sg-ripper/pkg/core"
+	"sg-ripper/pkg/core/types"
 )
 
 var (
@@ -56,7 +57,7 @@ func runList(cmd *cobra.Command, args []string) {
 	}
 }
 
-func printSecurityGroupUsage(usage core.SecurityGroup) {
+func printSecurityGroupUsage(usage types.SecurityGroup) {
 	pterm.DefaultSection.Printf("%s (%s)", usage.Name, usage.Id)
 	reasons := getReasonsAgainstRemoval(usage)
 	bulletList := []pterm.BulletListItem{
@@ -147,7 +148,7 @@ func printSecurityGroupUsage(usage core.SecurityGroup) {
 	}
 }
 
-func getReasonsAgainstRemoval(usage core.SecurityGroup) []string {
+func getReasonsAgainstRemoval(usage types.SecurityGroup) []string {
 	reasons := make([]string, 0)
 	if !usage.CanBeRemoved() {
 		if usage.Default {

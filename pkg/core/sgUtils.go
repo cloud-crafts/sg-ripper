@@ -2,16 +2,12 @@ package core
 
 import (
 	"context"
-	"errors"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/aws/aws-sdk-go-v2/service/ecs"
-	"github.com/aws/aws-sdk-go-v2/service/lambda"
-	lambdaTypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
-	"github.com/aws/smithy-go"
-	"regexp"
+	"sg-ripper/pkg/core/awsClients"
+	"sg-ripper/pkg/core/types"
 )
 
 const MaxResults = 1000
@@ -31,17 +27,17 @@ type Filters struct {
 // ListSecurityGroups lists the usage of Security Groups of whose IDs are provided in the securityGroupIds slice.
 // If the slice is empty, all the security groups will be retrieved. Furthermore, we can apply filters to retrieved
 // Security Groups, for example: we can grab only the Security Groups which are in use or just unused ones.
-func ListSecurityGroups(securityGroupIds []string, filters Filters, region string, profile string) ([]SecurityGroup, error) {
+func ListSecurityGroups(securityGroupIds []string, filters Filters, region string, profile string) ([]types.SecurityGroup, error) {
 	cfg, configErr := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region), config.WithSharedConfigProfile(profile))
 	if configErr != nil {
 		return nil, configErr
 	}
 
 	ec2Client := ec2.NewFromConfig(cfg)
-	lambdaClient := lambda.NewFromConfig(cfg)
-	ecsClient := ecs.NewFromConfig(cfg)
 
-	elbClient := newAwsElbClient(cfg)
+	awsLambdaClient := awsClients.NewAwsLambdaClient(cfg)
+	awsElbClient := awsClients.NewAwsElbClient(cfg)
+	ecsClient := awsClients.NewAwsEcsClient(cfg)
 
 	securityGroups, sgErr := describeSecurityGroups(ec2Client, securityGroupIds)
 	if sgErr != nil {
@@ -58,12 +54,12 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 		return nil, ifcErr
 	}
 
-	nicCache := make(map[string]*NetworkInterface)
+	nicCache := make(map[string]*types.NetworkInterface)
 
-	usage := make([]SecurityGroup, 0)
+	usage := make([]types.SecurityGroup, 0)
 	for _, sg := range securityGroups {
 		associatedInterfaces := getAssociatedNetworkInterfaces(sg, networkInterfaces)
-		associations := make([]*NetworkInterface, 0)
+		associations := make([]*types.NetworkInterface, 0)
 		for _, ifc := range associatedInterfaces {
 			if ifc.NetworkInterfaceId != nil {
 
@@ -72,19 +68,22 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 				if cachedNic, ok := nicCache[*ifc.NetworkInterfaceId]; ok {
 					associations = append(associations, cachedNic)
 				} else {
-					lambdaAttachment, err := getLambdaAttachment(lambdaClient, ifc)
+					lambdaAttachment, err := awsLambdaClient.GetLambdaAttachment(ifc)
 					if err != nil {
 						return nil, err
 					}
 
-					ecsAttachment, err := getECSAttachment(ecsClient, ifc)
+					ecsAttachment, err := ecsClient.GetECSAttachment(ifc)
 					if err != nil {
 						return nil, err
 					}
 
-					elbAttachment, err := elbClient.getELBAttachment(ifc)
+					elbAttachment, err := awsElbClient.GetELBAttachment(ifc)
+					if err != nil {
+						return nil, err
+					}
 
-					nic := NetworkInterface{
+					nic := types.NetworkInterface{
 						Id:               *ifc.NetworkInterfaceId,
 						Description:      ifc.Description,
 						Type:             string(ifc.InterfaceType),
@@ -103,7 +102,7 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 				}
 			}
 		}
-		usage = append(usage, *NewSecurityGroup(*sg.GroupName, *sg.GroupId, *sg.Description, associations,
+		usage = append(usage, *types.NewSecurityGroup(*sg.GroupName, *sg.GroupId, *sg.Description, associations,
 			getRuleReferences(sg, securityGroupRules), *sg.VpcId))
 	}
 
@@ -203,142 +202,11 @@ func getAssociatedNetworkInterfaces(sg ec2Types.SecurityGroup, networkInterfaces
 }
 
 // Get the IDs of the EC2 instances attached to the Network Interface
-func getEC2Attachment(ifc ec2Types.NetworkInterface) *EC2Attachment {
+func getEC2Attachment(ifc ec2Types.NetworkInterface) *types.EC2Attachment {
 	if ifc.Attachment != nil && ifc.Attachment.InstanceId != nil {
-		return &EC2Attachment{InstanceId: *ifc.Attachment.InstanceId}
+		return &types.EC2Attachment{InstanceId: *ifc.Attachment.InstanceId}
 	}
 	return nil
-}
-
-// Get the Lambda Function which is using the ENI
-func getLambdaAttachment(client *lambda.Client, eni ec2Types.NetworkInterface) (*LambdaAttachment, error) {
-	regex := regexp.MustCompile("AWS Lambda VPC ENI-(?P<fnName>.+)-([a-z]|[0-9]){8}-(([a-z]|[0-9]){4}-){3}([a-z]|[0-9]){12}")
-	if eni.InterfaceType == ec2Types.NetworkInterfaceTypeLambda && eni.Description != nil {
-		match := regex.FindStringSubmatch(*eni.Description)
-		if len(match) > 0 {
-			fnName := match[regex.SubexpIndex("fnName")]
-
-			fnConfig, fnErr := getLambdaFunctionConfigByName(client, fnName)
-			if fnErr != nil {
-				return nil, fnErr
-			}
-
-			var lambdaAttachment *LambdaAttachment
-			if fnConfig != nil {
-				lambdaAttachment = &LambdaAttachment{
-					Arn:       fnConfig.FunctionArn,
-					Name:      fnName,
-					IsRemoved: false,
-				}
-			} else {
-				lambdaAttachment = &LambdaAttachment{
-					Name:      fnName,
-					IsRemoved: true,
-				}
-			}
-			return lambdaAttachment, nil
-		}
-	}
-	return nil, nil
-}
-
-// Get the configuration for a Lambda function. If the function does not exist, the returned value will be nil
-func getLambdaFunctionConfigByName(client *lambda.Client, fnName string) (*lambdaTypes.FunctionConfiguration, error) {
-	fnInput := lambda.GetFunctionInput{FunctionName: &fnName}
-
-	function, err := client.GetFunction(context.TODO(), &fnInput)
-	if err != nil {
-		// Handle error in case the function does not exist. Do not return this error to the caller
-		var apiErr smithy.APIError
-		if errors.As(err, &apiErr) {
-			switch apiErr.(type) {
-			case *lambdaTypes.ResourceNotFoundException:
-				return nil, nil
-			}
-		}
-		return nil, err
-	}
-
-	return function.Configuration, nil
-}
-
-func getECSAttachment(client *ecs.Client, eni ec2Types.NetworkInterface) (*ECSAttachment, error) {
-	var cluster, service *string
-	for _, tag := range eni.TagSet {
-		if tag.Key != nil && *tag.Key == "aws:ecs:clusterName" {
-			cluster = tag.Value
-			continue
-		}
-		if tag.Key != nil && *tag.Key == "aws:ecs:serviceName" {
-			service = tag.Value
-		}
-	}
-
-	taskArn, container, ecsErr := getTaskAndContainerInfo(client, eni, cluster, service)
-
-	if ecsErr != nil {
-		return nil, ecsErr
-	}
-
-	if cluster != nil && service != nil {
-		return &ECSAttachment{
-			IsRemoved:     taskArn == nil,
-			ClusterName:   cluster,
-			ServiceName:   service,
-			ContainerName: container,
-			TaskArn:       taskArn,
-		}, nil
-	}
-	return nil, nil
-}
-
-func getTaskAndContainerInfo(client *ecs.Client, eni ec2Types.NetworkInterface, cluster, service *string) (*string, *string, error) {
-	if cluster != nil && service != nil {
-		var taskArn, containerName *string
-		var nexToken *string
-		for {
-			tasks, err := client.ListTasks(context.TODO(), &ecs.ListTasksInput{
-				Cluster:     cluster,
-				ServiceName: service,
-				MaxResults:  aws.Int32(int32(100)), // use 100 to avoid looping for DescribeTasks
-				NextToken:   nexToken,
-			})
-
-			if err != nil {
-				return nil, nil, err
-			}
-
-			detailedTasks, taskDescribeErr := client.DescribeTasks(context.TODO(), &ecs.DescribeTasksInput{
-				Cluster: cluster,
-				Tasks:   tasks.TaskArns,
-			})
-
-			if taskDescribeErr != nil {
-				return nil, nil, taskDescribeErr
-			}
-
-		out:
-			for _, task := range detailedTasks.Tasks {
-				for _, container := range task.Containers {
-					for _, containerEni := range container.NetworkInterfaces {
-						if *eni.PrivateIpAddress == *containerEni.PrivateIpv4Address {
-							containerName = container.Name
-							taskArn = task.TaskArn
-							break out
-						}
-					}
-				}
-			}
-
-			if tasks.NextToken != nil {
-				nexToken = tasks.NextToken
-			} else {
-				break
-			}
-		}
-		return taskArn, containerName, nil
-	}
-	return nil, nil, nil
 }
 
 // Get the Security Group Rules which are referencing the Security Group
@@ -356,25 +224,25 @@ func getRuleReferences(sg ec2Types.SecurityGroup, securityGroupRules []ec2Types.
 }
 
 // Apply Filters to the list of Security Group usages
-func applyFilters(usages []SecurityGroup, filters Filters) []SecurityGroup {
+func applyFilters(usages []types.SecurityGroup, filters Filters) []types.SecurityGroup {
 	if filters.Status == All {
 		return usages
 	}
 
-	var filterFn func(usage SecurityGroup) bool
+	var filterFn func(usage types.SecurityGroup) bool
 
 	switch filters.Status {
 	case Used:
-		filterFn = func(usage SecurityGroup) bool {
+		filterFn = func(usage types.SecurityGroup) bool {
 			return len(usage.UsedBy) > 0
 		}
 	case Unused:
-		filterFn = func(usage SecurityGroup) bool {
+		filterFn = func(usage types.SecurityGroup) bool {
 			return len(usage.UsedBy) <= 0
 		}
 	}
 
-	result := make([]SecurityGroup, 0)
+	result := make([]types.SecurityGroup, 0)
 	for _, usage := range usages {
 		if filterFn(usage) {
 			result = append(result, usage)

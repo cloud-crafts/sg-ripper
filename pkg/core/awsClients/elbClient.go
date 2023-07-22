@@ -1,4 +1,4 @@
-package core
+package awsClients
 
 import (
 	"context"
@@ -6,21 +6,22 @@ import (
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"regexp"
+	"sg-ripper/pkg/core/types"
 )
 
-type awsElbClient struct {
+type AwsElbClient struct {
 	client *elasticloadbalancingv2.Client
-	cache  map[string]*ELBAttachment
+	cache  map[string]*types.ELBAttachment
 }
 
-func newAwsElbClient(cfg aws.Config) *awsElbClient {
-	return &awsElbClient{
+func NewAwsElbClient(cfg aws.Config) *AwsElbClient {
+	return &AwsElbClient{
 		client: elasticloadbalancingv2.NewFromConfig(cfg),
-		cache:  make(map[string]*ELBAttachment),
+		cache:  make(map[string]*types.ELBAttachment),
 	}
 }
 
-func (c *awsElbClient) getELBAttachment(eni ec2Types.NetworkInterface) (*ELBAttachment, error) {
+func (c *AwsElbClient) GetELBAttachment(eni ec2Types.NetworkInterface) (*types.ELBAttachment, error) {
 	regex := regexp.MustCompile("ELB app/(?P<elbName>.+)/(?P<elbId>([a-z]|[0-9])+)")
 	if eni.InterfaceType == ec2Types.NetworkInterfaceTypeInterface && eni.Description != nil {
 		match := regex.FindStringSubmatch(*eni.Description)
@@ -38,7 +39,7 @@ func (c *awsElbClient) getELBAttachment(eni ec2Types.NetworkInterface) (*ELBAtta
 			}
 
 			for _, elb := range loadBalancers.LoadBalancers {
-				attachment := ELBAttachment{
+				attachment := types.ELBAttachment{
 					IsRemoved: elb.LoadBalancerArn == nil,
 					Name:      elbName,
 					Arn:       elb.LoadBalancerArn,
