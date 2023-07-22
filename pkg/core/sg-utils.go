@@ -3,13 +3,11 @@ package core
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
-	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	lambdaTypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/aws/smithy-go"
@@ -38,10 +36,12 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 	if configErr != nil {
 		return nil, configErr
 	}
+
 	ec2Client := ec2.NewFromConfig(cfg)
 	lambdaClient := lambda.NewFromConfig(cfg)
 	ecsClient := ecs.NewFromConfig(cfg)
-	elbClient := elasticloadbalancingv2.NewFromConfig(cfg)
+
+	elbClient := newAwsElbClient(cfg)
 
 	securityGroups, sgErr := describeSecurityGroups(ec2Client, securityGroupIds)
 	if sgErr != nil {
@@ -82,7 +82,7 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 						return nil, err
 					}
 
-					elbAttachment, err := getELBAttachment(elbClient, ifc)
+					elbAttachment, err := elbClient.getELBAttachment(ifc)
 
 					nic := NetworkInterface{
 						Id:               *ifc.NetworkInterfaceId,
@@ -339,32 +339,6 @@ func getTaskAndContainerInfo(client *ecs.Client, eni ec2Types.NetworkInterface, 
 		return taskArn, containerName, nil
 	}
 	return nil, nil, nil
-}
-
-func getELBAttachment(client *elasticloadbalancingv2.Client, eni ec2Types.NetworkInterface) (*ELBAttachment, error) {
-	regex := regexp.MustCompile("ELB app/(?P<albName>.+)/(?P<albId>([a-z]|[0-9])+)")
-	if eni.InterfaceType == ec2Types.NetworkInterfaceTypeInterface && eni.Description != nil {
-		match := regex.FindStringSubmatch(*eni.Description)
-		if len(match) > 0 {
-			albName := match[regex.SubexpIndex("albName")]
-			fmt.Println(albName)
-
-			loadBalancers, err := client.DescribeLoadBalancers(context.TODO(),
-				&elasticloadbalancingv2.DescribeLoadBalancersInput{Names: []string{albName}})
-			if err != nil {
-				return nil, err
-			}
-			for _, elb := range loadBalancers.LoadBalancers {
-				// It is expected that we will have only one load balancer as a result
-				return &ELBAttachment{
-					IsRemoved: elb.LoadBalancerArn == nil,
-					Name:      albName,
-					Arn:       elb.LoadBalancerArn,
-				}, nil
-			}
-		}
-	}
-	return nil, nil
 }
 
 // Get the Security Group Rules which are referencing the Security Group
