@@ -1,15 +1,15 @@
 package ecs
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/fujiwara/tfstate-lookup/tfstate"
 	"github.com/stretchr/testify/require"
 	"io"
 	"sg-ripper/pkg/core"
+	"sg-ripper/tests/integration/common"
 	"testing"
 )
 
@@ -18,14 +18,14 @@ const Profile = "A4L-DEV"
 const BucketName = "terraform-state-a4ldev"
 const ObjectKey = "sg-ripper/ecs/terraform.tfstate"
 
-var state *tfstate.TFState
+var state *common.TfState
 
 func TestMain(m *testing.M) {
 	state = fetchTfState()
 	_ = m.Run()
 }
 
-func fetchTfState() *tfstate.TFState {
+func fetchTfState() *common.TfState {
 	cfg, configErr := config.LoadDefaultConfig(context.TODO(), config.WithRegion(Region), config.WithSharedConfigProfile(Profile))
 	if configErr != nil {
 		panic(configErr)
@@ -51,23 +51,22 @@ func fetchTfState() *tfstate.TFState {
 		}
 	}(result.Body)
 
-	state, parseErr := tfstate.Read(nil, bytes.NewReader(stateBytes))
+	var tfState common.TfState
+	parseErr := json.Unmarshal(stateBytes, &tfState)
+
 	if parseErr != nil {
 		panic(parseErr)
 	}
 
-	return state
+	return &tfState
 }
 
 func TestAlbSg(t *testing.T) {
 
-	albSgId, err := state.Lookup("aws_security_group.alb_sg.id")
-	if err != nil {
-		println(err)
-		t.Skip()
-	}
+	albOutput := state.Outputs["alb_sg"]
+	sgId := albOutput.Value.(string)
 
-	securityGroups, err := core.ListSecurityGroups([]string{albSgId.String()}, core.Filters{Status: core.All}, Region, Profile)
+	securityGroups, err := core.ListSecurityGroups([]string{sgId}, core.Filters{Status: core.All}, Region, Profile)
 
 	require.NoError(t, err)
 	require.NotEmpty(t, securityGroups)
