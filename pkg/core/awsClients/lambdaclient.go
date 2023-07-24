@@ -24,7 +24,8 @@ func NewAwsLambdaClient(cfg aws.Config) *AwsLambdaClient {
 	}
 }
 
-// GetLambdaAttachment returns a Lambda Function which is using the ENI
+// GetLambdaAttachment returns a pointer to an LambdaAttachment for the network interface. If there is no attachment found,
+// the returned value is a nil.
 func (c *AwsLambdaClient) GetLambdaAttachment(eni ec2Types.NetworkInterface) (*coreTypes.LambdaAttachment, error) {
 	regex := regexp.MustCompile("AWS Lambda VPC ENI-(?P<fnName>.+)-([a-z]|[0-9]){8}-(([a-z]|[0-9]){4}-){3}([a-z]|[0-9]){12}")
 	if eni.InterfaceType == ec2Types.NetworkInterfaceTypeLambda && eni.Description != nil {

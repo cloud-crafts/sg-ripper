@@ -21,6 +21,8 @@ func NewAwsElbClient(cfg aws.Config) *AwsElbClient {
 	}
 }
 
+// GetELBAttachment returns a pointer to an ElbAttachment for the network interface. If there is no attachment found,
+// the returned value is a nil.
 func (c *AwsElbClient) GetELBAttachment(eni ec2Types.NetworkInterface) (*coreTypes.ElbAttachment, error) {
 	regex := regexp.MustCompile("ELB app/(?P<elbName>.+)/(?P<elbId>([a-z]|[0-9])+)")
 	if eni.InterfaceType == ec2Types.NetworkInterfaceTypeInterface && eni.Description != nil {

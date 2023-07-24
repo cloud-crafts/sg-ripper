@@ -102,6 +102,8 @@ func (c *AwsEc2Client) DescribeNetworkInterfaces(securityGroupIds []string) ([]e
 	return networkInterfaces, nil
 }
 
+// GetVpceAttachment returns a pointer to a VpceAttachment for the network interface. If there is no attachment found,
+// the returned value is a nil.
 func (c *AwsEc2Client) GetVpceAttachment(eni ec2Types.NetworkInterface) (*coreTypes.VpceAttachment, error) {
 	regex := regexp.MustCompile("VPC Endpoint Interface (?P<vpceId>vpce-([a-z]|[0-9])+)")
 	if eni.InterfaceType == ec2Types.NetworkInterfaceTypeVpcEndpoint && eni.Description != nil {

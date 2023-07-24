@@ -20,6 +20,8 @@ func NewAwsEcsClient(cfg aws.Config) *AwsEcsClient {
 	}
 }
 
+// GetECSAttachment returns a pointer to an EcsAttachment for the network interface. If there is no attachment found,
+// the returned value is a nil.
 func (c *AwsEcsClient) GetECSAttachment(eni ec2Types.NetworkInterface) (*coreTypes.EcsAttachment, error) {
 	var cluster, service *string
 	for _, tag := range eni.TagSet {

@@ -10,6 +10,7 @@ type SecurityGroup struct {
 	VpcId          string
 }
 
+// NewSecurityGroup creates a new SecurityGroup object and returns a pointer to it
 func NewSecurityGroup(name string, id string, description string, usedBy []*NetworkInterface, ruleReferences []string,
 	vpcId string) *SecurityGroup {
 	return &SecurityGroup{
