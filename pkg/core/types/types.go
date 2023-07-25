@@ -46,7 +46,7 @@ type NetworkInterface struct {
 	ECSAttachment            *EcsAttachment
 	ELBAttachment            *ElbAttachment
 	VpceAttachment           *VpceAttachment
-	SecurityGroupIdentifiers []*SecurityGroupIdentifier
+	SecurityGroupIdentifiers []SecurityGroupIdentifier
 }
 
 func (eni *NetworkInterface) IsInUse() bool {
