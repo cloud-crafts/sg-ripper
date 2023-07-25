@@ -48,6 +48,10 @@ type NetworkInterface struct {
 	VpceAttachment   *VpceAttachment
 }
 
+func (eni *NetworkInterface) IsInUse() bool {
+	return eni.Status == "in-use"
+}
+
 type Ec2Attachment struct {
 	InstanceId string
 }

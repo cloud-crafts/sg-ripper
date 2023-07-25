@@ -5,7 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"sg-ripper/pkg/core/awsClients"
-	"sg-ripper/pkg/core/types"
+	coreTypes "sg-ripper/pkg/core/types"
 )
 
 const (
@@ -23,7 +23,7 @@ type Filters struct {
 // ListSecurityGroups lists the usage of Security Groups of whose IDs are provided in the securityGroupIds slice.
 // If the slice is empty, all the security groups will be retrieved. Furthermore, we can apply filters to retrieved
 // Security Groups, for example: we can grab only the Security Groups which are in use or just unused ones.
-func ListSecurityGroups(securityGroupIds []string, filters Filters, region string, profile string) ([]types.SecurityGroup, error) {
+func ListSecurityGroups(securityGroupIds []string, filters Filters, region string, profile string) ([]coreTypes.SecurityGroup, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region), config.WithSharedConfigProfile(profile))
 	if err != nil {
 		return nil, err
@@ -41,7 +41,7 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 		return nil, err
 	}
 
-	networkInterfaces, err := ec2Client.DescribeNetworkInterfaces(securityGroupIds)
+	networkInterfaces, err := ec2Client.DescribeNetworkInterfacesUsedBySecurityGroups(securityGroupIds)
 	if err != nil {
 		return nil, err
 	}
@@ -50,12 +50,12 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 	awsElbClient := awsClients.NewAwsElbClient(cfg)
 	ecsClient := awsClients.NewAwsEcsClient(cfg)
 
-	nicCache := make(map[string]*types.NetworkInterface)
+	nicCache := make(map[string]*coreTypes.NetworkInterface)
 
-	usage := make([]types.SecurityGroup, 0)
+	usage := make([]coreTypes.SecurityGroup, 0)
 	for _, sg := range securityGroups {
 		associatedInterfaces := getAssociatedNetworkInterfaces(sg, networkInterfaces)
-		associations := make([]*types.NetworkInterface, 0)
+		associations := make([]*coreTypes.NetworkInterface, 0)
 		for _, eni := range associatedInterfaces {
 			if eni.NetworkInterfaceId != nil {
 
@@ -84,7 +84,7 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 						return nil, err
 					}
 
-					nic := types.NetworkInterface{
+					nic := coreTypes.NetworkInterface{
 						Id:               *eni.NetworkInterfaceId,
 						Description:      eni.Description,
 						Type:             string(eni.InterfaceType),
@@ -104,7 +104,7 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 				}
 			}
 		}
-		usage = append(usage, *types.NewSecurityGroup(*sg.GroupName, *sg.GroupId, *sg.Description, associations,
+		usage = append(usage, *coreTypes.NewSecurityGroup(*sg.GroupName, *sg.GroupId, *sg.Description, associations,
 			getRuleReferences(sg, securityGroupRules), *sg.VpcId))
 	}
 
@@ -125,9 +125,9 @@ func getAssociatedNetworkInterfaces(sg ec2Types.SecurityGroup, networkInterfaces
 }
 
 // Get the IDs of the EC2 instances attached to the Network Interface
-func getEC2Attachment(ifc ec2Types.NetworkInterface) *types.Ec2Attachment {
+func getEC2Attachment(ifc ec2Types.NetworkInterface) *coreTypes.Ec2Attachment {
 	if ifc.Attachment != nil && ifc.Attachment.InstanceId != nil {
-		return &types.Ec2Attachment{InstanceId: *ifc.Attachment.InstanceId}
+		return &coreTypes.Ec2Attachment{InstanceId: *ifc.Attachment.InstanceId}
 	}
 	return nil
 }
@@ -147,28 +147,28 @@ func getRuleReferences(sg ec2Types.SecurityGroup, securityGroupRules []ec2Types.
 }
 
 // Apply Filters to the list of Security Group usages
-func applyFilters(usages []types.SecurityGroup, filters Filters) []types.SecurityGroup {
+func applyFilters(groups []coreTypes.SecurityGroup, filters Filters) []coreTypes.SecurityGroup {
 	if filters.Status == All {
-		return usages
+		return groups
 	}
 
-	var filterFn func(usage types.SecurityGroup) bool
+	var filterFn func(usage coreTypes.SecurityGroup) bool
 
 	switch filters.Status {
 	case Used:
-		filterFn = func(usage types.SecurityGroup) bool {
-			return len(usage.UsedBy) > 0
+		filterFn = func(sg coreTypes.SecurityGroup) bool {
+			return sg.IsInUse()
 		}
 	case Unused:
-		filterFn = func(usage types.SecurityGroup) bool {
-			return len(usage.UsedBy) <= 0
+		filterFn = func(sg coreTypes.SecurityGroup) bool {
+			return !sg.IsInUse()
 		}
 	}
 
-	result := make([]types.SecurityGroup, 0)
-	for _, usage := range usages {
-		if filterFn(usage) {
-			result = append(result, usage)
+	result := make([]coreTypes.SecurityGroup, 0)
+	for _, sg := range groups {
+		if filterFn(sg) {
+			result = append(result, sg)
 		}
 	}
 	return result
