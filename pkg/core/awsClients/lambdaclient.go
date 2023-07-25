@@ -26,7 +26,7 @@ func NewAwsLambdaClient(cfg aws.Config) *AwsLambdaClient {
 
 // GetLambdaAttachment returns a pointer to an LambdaAttachment for the network interface. If there is no attachment found,
 // the returned value is a nil.
-func (c *AwsLambdaClient) GetLambdaAttachment(eni ec2Types.NetworkInterface) (*coreTypes.LambdaAttachment, error) {
+func (c *AwsLambdaClient) GetLambdaAttachment(ctx context.Context, eni ec2Types.NetworkInterface) (*coreTypes.LambdaAttachment, error) {
 	regex := regexp.MustCompile("AWS Lambda VPC ENI-(?P<fnName>.+)-([a-z]|[0-9]){8}-(([a-z]|[0-9]){4}-){3}([a-z]|[0-9]){12}")
 	if eni.InterfaceType == ec2Types.NetworkInterfaceTypeLambda && eni.Description != nil {
 		match := regex.FindStringSubmatch(*eni.Description)
@@ -37,7 +37,7 @@ func (c *AwsLambdaClient) GetLambdaAttachment(eni ec2Types.NetworkInterface) (*c
 				return cachedFn, nil
 			}
 
-			fnConfig, fnErr := c.getLambdaFunctionConfigByName(c.client, fnName)
+			fnConfig, fnErr := c.getLambdaFunctionConfigByName(ctx, c.client, fnName)
 			if fnErr != nil {
 				return nil, fnErr
 			}
@@ -65,10 +65,10 @@ func (c *AwsLambdaClient) GetLambdaAttachment(eni ec2Types.NetworkInterface) (*c
 }
 
 // Get the configuration for a Lambda function. If the function does not exist, the returned value will be nil
-func (c *AwsLambdaClient) getLambdaFunctionConfigByName(client *lambda.Client, fnName string) (*lambdaTypes.FunctionConfiguration, error) {
+func (c *AwsLambdaClient) getLambdaFunctionConfigByName(ctx context.Context, client *lambda.Client, fnName string) (*lambdaTypes.FunctionConfiguration, error) {
 	fnInput := lambda.GetFunctionInput{FunctionName: &fnName}
 
-	function, err := client.GetFunction(context.TODO(), &fnInput)
+	function, err := client.GetFunction(ctx, &fnInput)
 	if err != nil {
 		// Handle error in case the function does not exist. Do not return this error to the caller
 		var apiErr smithy.APIError

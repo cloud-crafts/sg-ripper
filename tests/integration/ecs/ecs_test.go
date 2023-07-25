@@ -48,7 +48,7 @@ func TestAlbAttachment(t *testing.T) {
 	albOut := state.Outputs["alb_sg"]
 	sgId := albOut.Value.(string)
 
-	securityGroups, err := core.ListSecurityGroups([]string{sgId}, core.Filters{Status: core.All}, Region, Profile)
+	securityGroups, err := core.ListSecurityGroups(context.TODO(), []string{sgId}, core.Filters{Status: core.All}, Region, Profile)
 
 	require.NoError(t, err)
 	require.NotEmpty(t, securityGroups)
@@ -66,7 +66,7 @@ func TestECSTaskAttachment(t *testing.T) {
 	output := state.Outputs["container_sg_id"]
 	sgId := output.Value.(string)
 
-	securityGroups, err := core.ListSecurityGroups([]string{sgId}, core.Filters{Status: core.All}, Region, Profile)
+	securityGroups, err := core.ListSecurityGroups(context.TODO(), []string{sgId}, core.Filters{Status: core.All}, Region, Profile)
 
 	require.NoError(t, err)
 	require.NotEmpty(t, securityGroups)

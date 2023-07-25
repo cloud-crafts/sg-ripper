@@ -47,7 +47,7 @@ func runList(cmd *cobra.Command, args []string) {
 		filters.Status = core.Unused
 	}
 
-	sgUsage, err := core.ListSecurityGroups(ids, filters, region, profile)
+	sgUsage, err := core.ListSecurityGroups(cmd.Context(), ids, filters, region, profile)
 	if err != nil {
 		cmd.PrintErrf("Error: %s", err)
 		return

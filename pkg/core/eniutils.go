@@ -25,22 +25,22 @@ func ListNetworkInterfaces(ctx context.Context, eniIds []string, filters Filters
 
 	enis := make([]coreTypes.NetworkInterface, 0)
 	for _, awsEni := range networkInterfaces {
-		lambdaAttachment, err := awsLambdaClient.GetLambdaAttachment(awsEni)
+		lambdaAttachment, err := awsLambdaClient.GetLambdaAttachment(ctx, awsEni)
 		if err != nil {
 			return nil, err
 		}
 
-		ecsAttachment, err := ecsClient.GetECSAttachment(awsEni)
+		ecsAttachment, err := ecsClient.GetECSAttachment(ctx, awsEni)
 		if err != nil {
 			return nil, err
 		}
 
-		elbAttachment, err := awsElbClient.GetELBAttachment(awsEni)
+		elbAttachment, err := awsElbClient.GetELBAttachment(ctx, awsEni)
 		if err != nil {
 			return nil, err
 		}
 
-		vpceAttachment, err := ec2Client.GetVpceAttachment(awsEni)
+		vpceAttachment, err := ec2Client.GetVpceAttachment(ctx, awsEni)
 		if err != nil {
 			return nil, err
 		}

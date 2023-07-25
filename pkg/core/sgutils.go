@@ -23,7 +23,7 @@ type Filters struct {
 // ListSecurityGroups lists the usage of Security Groups of whose IDs are provided in the securityGroupIds slice.
 // If the slice is empty, all the security groups will be retrieved. Furthermore, we can apply filters to retrieved
 // Security Groups, for example: we can grab only the Security Groups which are in use or just unused ones.
-func ListSecurityGroups(securityGroupIds []string, filters Filters, region string, profile string) ([]coreTypes.SecurityGroup, error) {
+func ListSecurityGroups(ctx context.Context, securityGroupIds []string, filters Filters, region string, profile string) ([]coreTypes.SecurityGroup, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region), config.WithSharedConfigProfile(profile))
 	if err != nil {
 		return nil, err
@@ -31,17 +31,17 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 
 	ec2Client := awsClients.NewAwsEc2Client(cfg)
 
-	securityGroups, err := ec2Client.DescribeSecurityGroups(securityGroupIds)
+	securityGroups, err := ec2Client.DescribeSecurityGroups(ctx, securityGroupIds)
 	if err != nil {
 		return nil, err
 	}
 
-	securityGroupRules, err := ec2Client.DescribeSecurityGroupRules()
+	securityGroupRules, err := ec2Client.DescribeSecurityGroupRules(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	networkInterfaces, err := ec2Client.DescribeNetworkInterfacesUsedBySecurityGroups(securityGroupIds)
+	networkInterfaces, err := ec2Client.DescribeNetworkInterfacesUsedBySecurityGroups(ctx, securityGroupIds)
 	if err != nil {
 		return nil, err
 	}
@@ -64,22 +64,22 @@ func ListSecurityGroups(securityGroupIds []string, filters Filters, region strin
 				if cachedNic, ok := nicCache[*eni.NetworkInterfaceId]; ok {
 					associations = append(associations, cachedNic)
 				} else {
-					lambdaAttachment, err := awsLambdaClient.GetLambdaAttachment(eni)
+					lambdaAttachment, err := awsLambdaClient.GetLambdaAttachment(ctx, eni)
 					if err != nil {
 						return nil, err
 					}
 
-					ecsAttachment, err := ecsClient.GetECSAttachment(eni)
+					ecsAttachment, err := ecsClient.GetECSAttachment(ctx, eni)
 					if err != nil {
 						return nil, err
 					}
 
-					elbAttachment, err := awsElbClient.GetELBAttachment(eni)
+					elbAttachment, err := awsElbClient.GetELBAttachment(ctx, eni)
 					if err != nil {
 						return nil, err
 					}
 
-					vpceAttachment, err := ec2Client.GetVpceAttachment(eni)
+					vpceAttachment, err := ec2Client.GetVpceAttachment(ctx, eni)
 					if err != nil {
 						return nil, err
 					}

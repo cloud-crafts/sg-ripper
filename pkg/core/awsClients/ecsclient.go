@@ -22,7 +22,7 @@ func NewAwsEcsClient(cfg aws.Config) *AwsEcsClient {
 
 // GetECSAttachment returns a pointer to an EcsAttachment for the network interface. If there is no attachment found,
 // the returned value is a nil.
-func (c *AwsEcsClient) GetECSAttachment(eni ec2Types.NetworkInterface) (*coreTypes.EcsAttachment, error) {
+func (c *AwsEcsClient) GetECSAttachment(ctx context.Context, eni ec2Types.NetworkInterface) (*coreTypes.EcsAttachment, error) {
 	var cluster, service *string
 	for _, tag := range eni.TagSet {
 		if tag.Key != nil && *tag.Key == "aws:ecs:clusterName" {
@@ -34,7 +34,7 @@ func (c *AwsEcsClient) GetECSAttachment(eni ec2Types.NetworkInterface) (*coreTyp
 		}
 	}
 
-	taskArn, container, ecsErr := c.getTaskAndContainerInfo(eni, cluster, service)
+	taskArn, container, ecsErr := c.getTaskAndContainerInfo(ctx, eni, cluster, service)
 
 	if ecsErr != nil {
 		return nil, ecsErr
@@ -52,12 +52,13 @@ func (c *AwsEcsClient) GetECSAttachment(eni ec2Types.NetworkInterface) (*coreTyp
 	return nil, nil
 }
 
-func (c *AwsEcsClient) getTaskAndContainerInfo(eni ec2Types.NetworkInterface, cluster, service *string) (*string, *string, error) {
+func (c *AwsEcsClient) getTaskAndContainerInfo(ctx context.Context, eni ec2Types.NetworkInterface,
+	cluster, service *string) (*string, *string, error) {
 	if cluster != nil && service != nil {
 		var taskArn, containerName *string
 		var nexToken *string
 		for {
-			tasks, err := c.client.ListTasks(context.TODO(), &ecs.ListTasksInput{
+			tasks, err := c.client.ListTasks(ctx, &ecs.ListTasksInput{
 				Cluster:     cluster,
 				ServiceName: service,
 				MaxResults:  aws.Int32(int32(100)), // use 100 to avoid looping for DescribeTasks
@@ -68,7 +69,7 @@ func (c *AwsEcsClient) getTaskAndContainerInfo(eni ec2Types.NetworkInterface, cl
 				return nil, nil, err
 			}
 
-			detailedTasks, taskDescribeErr := c.client.DescribeTasks(context.TODO(), &ecs.DescribeTasksInput{
+			detailedTasks, taskDescribeErr := c.client.DescribeTasks(ctx, &ecs.DescribeTasksInput{
 				Cluster: cluster,
 				Tasks:   tasks.TaskArns,
 			})

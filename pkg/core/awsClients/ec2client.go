@@ -24,7 +24,7 @@ func NewAwsEc2Client(cfg aws.Config) *AwsEc2Client {
 }
 
 // DescribeSecurityGroups returns a list of Security Groups based on the list of Security Group IDs provided as an input
-func (c *AwsEc2Client) DescribeSecurityGroups(securityGroupIds []string) ([]ec2Types.SecurityGroup, error) {
+func (c *AwsEc2Client) DescribeSecurityGroups(ctx context.Context, securityGroupIds []string) ([]ec2Types.SecurityGroup, error) {
 	filterName := "group-id"
 	var filters []ec2Types.Filter
 	if len(securityGroupIds) > 0 {
@@ -34,7 +34,7 @@ func (c *AwsEc2Client) DescribeSecurityGroups(securityGroupIds []string) ([]ec2T
 	var nextToken *string = nil
 	securityGroups := make([]ec2Types.SecurityGroup, 0)
 	for {
-		sgResponse, err := c.client.DescribeSecurityGroups(context.TODO(),
+		sgResponse, err := c.client.DescribeSecurityGroups(ctx,
 			&ec2.DescribeSecurityGroupsInput{
 				NextToken:  nextToken,
 				Filters:    filters,
@@ -55,11 +55,11 @@ func (c *AwsEc2Client) DescribeSecurityGroups(securityGroupIds []string) ([]ec2T
 }
 
 // DescribeSecurityGroupRules returns all the Security Group Rules. (TODO: try to optimise this to grab a sublist only)
-func (c *AwsEc2Client) DescribeSecurityGroupRules() ([]ec2Types.SecurityGroupRule, error) {
+func (c *AwsEc2Client) DescribeSecurityGroupRules(ctx context.Context) ([]ec2Types.SecurityGroupRule, error) {
 	var nextToken *string = nil
 	securityGroupRules := make([]ec2Types.SecurityGroupRule, 0)
 	for {
-		sgResponse, err := c.client.DescribeSecurityGroupRules(context.TODO(),
+		sgResponse, err := c.client.DescribeSecurityGroupRules(ctx,
 			&ec2.DescribeSecurityGroupRulesInput{NextToken: nextToken, MaxResults: aws.Int32(int32(MaxResults))})
 		if err != nil {
 			return nil, err
@@ -76,7 +76,7 @@ func (c *AwsEc2Client) DescribeSecurityGroupRules() ([]ec2Types.SecurityGroupRul
 }
 
 // DescribeNetworkInterfacesUsedBySecurityGroups returns a list of Network Interfaces used by the security groups from the input slice
-func (c *AwsEc2Client) DescribeNetworkInterfacesUsedBySecurityGroups(securityGroupIds []string) ([]ec2Types.NetworkInterface, error) {
+func (c *AwsEc2Client) DescribeNetworkInterfacesUsedBySecurityGroups(ctx context.Context, securityGroupIds []string) ([]ec2Types.NetworkInterface, error) {
 	filterName := "group-id"
 	var filters []ec2Types.Filter
 	if len(securityGroupIds) > 0 {
@@ -86,7 +86,7 @@ func (c *AwsEc2Client) DescribeNetworkInterfacesUsedBySecurityGroups(securityGro
 	var nextToken *string = nil
 	networkInterfaces := make([]ec2Types.NetworkInterface, 0)
 	for {
-		ifcResponse, err := c.client.DescribeNetworkInterfaces(context.TODO(),
+		ifcResponse, err := c.client.DescribeNetworkInterfaces(ctx,
 			&ec2.DescribeNetworkInterfacesInput{NextToken: nextToken, MaxResults: aws.Int32(int32(MaxResults))})
 		if err != nil {
 			return nil, err
@@ -104,7 +104,7 @@ func (c *AwsEc2Client) DescribeNetworkInterfacesUsedBySecurityGroups(securityGro
 
 // GetVpceAttachment returns a pointer to a VpceAttachment for the network interface. If there is no attachment found,
 // the returned value is a nil.
-func (c *AwsEc2Client) GetVpceAttachment(eni ec2Types.NetworkInterface) (*coreTypes.VpceAttachment, error) {
+func (c *AwsEc2Client) GetVpceAttachment(ctx context.Context, eni ec2Types.NetworkInterface) (*coreTypes.VpceAttachment, error) {
 	regex := regexp.MustCompile("VPC Endpoint Interface (?P<vpceId>vpce-([a-z]|[0-9])+)")
 	if eni.InterfaceType == ec2Types.NetworkInterfaceTypeVpcEndpoint && eni.Description != nil {
 		match := regex.FindStringSubmatch(*eni.Description)
@@ -116,7 +116,7 @@ func (c *AwsEc2Client) GetVpceAttachment(eni ec2Types.NetworkInterface) (*coreTy
 				return cachedVpce, nil
 			}
 
-			vpceResponse, err := c.client.DescribeVpcEndpoints(context.TODO(), &ec2.DescribeVpcEndpointsInput{
+			vpceResponse, err := c.client.DescribeVpcEndpoints(ctx, &ec2.DescribeVpcEndpointsInput{
 				Filters: []ec2Types.Filter{{
 					Name:   aws.String("vpc-endpoint-id"),
 					Values: []string{vpceId},
