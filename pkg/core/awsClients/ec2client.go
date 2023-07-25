@@ -75,6 +75,28 @@ func (c *AwsEc2Client) DescribeSecurityGroupRules(ctx context.Context) ([]ec2Typ
 	return securityGroupRules, nil
 }
 
+// DescribeNetworkInterfaces returns a list of Network Interfaces according to the interfaces ID slice. If there
+// is no interface id given in the input, all the possible Network Interfaces will be returned
+func (c *AwsEc2Client) DescribeNetworkInterfaces(ctx context.Context, eniIds []string) ([]ec2Types.NetworkInterface, error) {
+	var nextToken *string = nil
+	networkInterfaces := make([]ec2Types.NetworkInterface, 0)
+	for {
+		ifcResponse, err := c.client.DescribeNetworkInterfaces(ctx,
+			&ec2.DescribeNetworkInterfacesInput{NextToken: nextToken, NetworkInterfaceIds: eniIds})
+		if err != nil {
+			return nil, err
+		}
+
+		networkInterfaces = append(networkInterfaces, ifcResponse.NetworkInterfaces...)
+		nextToken = ifcResponse.NextToken
+
+		if nextToken == nil {
+			break
+		}
+	}
+	return networkInterfaces, nil
+}
+
 // DescribeNetworkInterfacesUsedBySecurityGroups returns a list of Network Interfaces used by the security groups from the input slice
 func (c *AwsEc2Client) DescribeNetworkInterfacesUsedBySecurityGroups(ctx context.Context, securityGroupIds []string) ([]ec2Types.NetworkInterface, error) {
 	filterName := "group-id"
@@ -141,30 +163,4 @@ func (c *AwsEc2Client) GetVpceAttachment(ctx context.Context, eni ec2Types.Netwo
 		}
 	}
 	return nil, nil
-}
-
-func (c *AwsEc2Client) DescribeNetworkInterfaces(ctx context.Context, ids []string) ([]ec2Types.NetworkInterface, error) {
-	filterName := "eni-id"
-	var filters []ec2Types.Filter
-	if len(ids) > 0 {
-		filters = append(filters, ec2Types.Filter{Name: &filterName, Values: ids})
-	}
-
-	var nextToken *string = nil
-	networkInterfaces := make([]ec2Types.NetworkInterface, 0)
-	for {
-		ifcResponse, err := c.client.DescribeNetworkInterfaces(ctx,
-			&ec2.DescribeNetworkInterfacesInput{NextToken: nextToken, MaxResults: aws.Int32(int32(MaxResults))})
-		if err != nil {
-			return nil, err
-		}
-
-		networkInterfaces = append(networkInterfaces, ifcResponse.NetworkInterfaces...)
-		nextToken = ifcResponse.NextToken
-
-		if nextToken == nil {
-			break
-		}
-	}
-	return networkInterfaces, nil
 }
