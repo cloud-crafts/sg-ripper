@@ -45,17 +45,28 @@ func ListNetworkInterfaces(ctx context.Context, eniIds []string, filters Filters
 			return nil, err
 		}
 
+		sgIdentifiers := make([]*coreTypes.SecurityGroupIdentifier, 0)
+		for _, group := range awsEni.Groups {
+			if group.GroupId != nil {
+				sgIdentifiers = append(sgIdentifiers, &coreTypes.SecurityGroupIdentifier{
+					Id:   *group.GroupId,
+					Name: group.GroupName,
+				})
+			}
+		}
+
 		enis = append(enis, coreTypes.NetworkInterface{
-			Id:               *awsEni.NetworkInterfaceId,
-			Description:      awsEni.Description,
-			Type:             string(awsEni.InterfaceType),
-			ManagedByAWS:     *awsEni.RequesterManaged,
-			Status:           string(awsEni.Status),
-			EC2Attachment:    getEC2Attachment(awsEni),
-			LambdaAttachment: lambdaAttachment,
-			ECSAttachment:    ecsAttachment,
-			ELBAttachment:    elbAttachment,
-			VpceAttachment:   vpceAttachment,
+			Id:                       *awsEni.NetworkInterfaceId,
+			Description:              awsEni.Description,
+			Type:                     string(awsEni.InterfaceType),
+			ManagedByAWS:             *awsEni.RequesterManaged,
+			Status:                   string(awsEni.Status),
+			EC2Attachment:            getEC2Attachment(awsEni),
+			LambdaAttachment:         lambdaAttachment,
+			ECSAttachment:            ecsAttachment,
+			ELBAttachment:            elbAttachment,
+			VpceAttachment:           vpceAttachment,
+			SecurityGroupIdentifiers: sgIdentifiers,
 		})
 	}
 

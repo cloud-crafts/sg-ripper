@@ -135,6 +135,17 @@ func printEniUsage(eni coreTypes.NetworkInterface) error {
 		}
 	}
 
+	if eni.SecurityGroupIdentifiers != nil {
+		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Associated Security Groups:"})
+		for _, identifer := range eni.SecurityGroupIdentifiers {
+			name := "<no-name>"
+			if identifer.Name != nil {
+				name = *identifer.Name
+			}
+			bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf("%s (%s)", name, identifer.Id)})
+		}
+	}
+
 	err := pterm.DefaultBulletList.WithItems(bulletList).Render()
 	if err != nil {
 		return err

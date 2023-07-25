@@ -36,16 +36,17 @@ func (u *SecurityGroup) CanBeRemoved() bool {
 }
 
 type NetworkInterface struct {
-	Id               string
-	Description      *string
-	Type             string
-	ManagedByAWS     bool
-	Status           string
-	EC2Attachment    *Ec2Attachment
-	LambdaAttachment *LambdaAttachment
-	ECSAttachment    *EcsAttachment
-	ELBAttachment    *ElbAttachment
-	VpceAttachment   *VpceAttachment
+	Id                       string
+	Description              *string
+	Type                     string
+	ManagedByAWS             bool
+	Status                   string
+	EC2Attachment            *Ec2Attachment
+	LambdaAttachment         *LambdaAttachment
+	ECSAttachment            *EcsAttachment
+	ELBAttachment            *ElbAttachment
+	VpceAttachment           *VpceAttachment
+	SecurityGroupIdentifiers []*SecurityGroupIdentifier
 }
 
 func (eni *NetworkInterface) IsInUse() bool {
@@ -80,4 +81,9 @@ type VpceAttachment struct {
 	IsRemoved   bool
 	Id          *string
 	ServiceName *string
+}
+
+type SecurityGroupIdentifier struct {
+	Name *string
+	Id   string
 }
