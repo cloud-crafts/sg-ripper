@@ -26,42 +26,52 @@ func NewAwsLambdaClient(cfg aws.Config) *AwsLambdaClient {
 
 // GetLambdaAttachment returns a pointer to an LambdaAttachment for the network interface. If there is no attachment found,
 // the returned value is a nil.
-func (c *AwsLambdaClient) GetLambdaAttachment(ctx context.Context, eni ec2Types.NetworkInterface) (*coreTypes.LambdaAttachment, error) {
-	regex := regexp.MustCompile("AWS Lambda VPC ENI-(?P<fnName>.+)-([a-z]|[0-9]){8}-(([a-z]|[0-9]){4}-){3}([a-z]|[0-9]){12}")
-	if eni.InterfaceType == ec2Types.NetworkInterfaceTypeLambda && eni.Description != nil {
-		match := regex.FindStringSubmatch(*eni.Description)
-		if len(match) > 0 {
-			fnName := match[regex.SubexpIndex("fnName")]
+func (c *AwsLambdaClient) GetLambdaAttachment(ctx context.Context, eni ec2Types.NetworkInterface, resultCh chan Result[*coreTypes.LambdaAttachment]) {
+	go func() {
+		defer close(resultCh)
+		regex := regexp.MustCompile("AWS Lambda VPC ENI-(?P<fnName>.+)-([a-z]|[0-9]){8}-(([a-z]|[0-9]){4}-){3}([a-z]|[0-9]){12}")
+		if eni.InterfaceType == ec2Types.NetworkInterfaceTypeLambda && eni.Description != nil {
+			match := regex.FindStringSubmatch(*eni.Description)
+			if len(match) > 0 {
+				fnName := match[regex.SubexpIndex("fnName")]
 
-			if cachedFn, ok := c.cache[fnName]; ok {
-				return cachedFn, nil
-			}
-
-			fnConfig, fnErr := c.getLambdaFunctionConfigByName(ctx, c.client, fnName)
-			if fnErr != nil {
-				return nil, fnErr
-			}
-
-			var attachment *coreTypes.LambdaAttachment
-			if fnConfig != nil {
-				attachment = &coreTypes.LambdaAttachment{
-					Arn:       fnConfig.FunctionArn,
-					Name:      fnName,
-					IsRemoved: false,
+				if cachedFn, ok := c.cache[fnName]; ok {
+					resultCh <- Result[*coreTypes.LambdaAttachment]{
+						Data: cachedFn,
+					}
+					return
 				}
-			} else {
-				attachment = &coreTypes.LambdaAttachment{
-					Name:      fnName,
-					IsRemoved: true,
+
+				fnConfig, err := c.getLambdaFunctionConfigByName(ctx, c.client, fnName)
+				if err != nil {
+					resultCh <- Result[*coreTypes.LambdaAttachment]{
+						Err: err,
+					}
+					return
+				}
+
+				var attachment *coreTypes.LambdaAttachment
+				if fnConfig != nil {
+					attachment = &coreTypes.LambdaAttachment{
+						Arn:       fnConfig.FunctionArn,
+						Name:      fnName,
+						IsRemoved: false,
+					}
+				} else {
+					attachment = &coreTypes.LambdaAttachment{
+						Name:      fnName,
+						IsRemoved: true,
+					}
+				}
+
+				c.cache[fnName] = attachment
+
+				resultCh <- Result[*coreTypes.LambdaAttachment]{
+					Data: attachment,
 				}
 			}
-
-			c.cache[fnName] = attachment
-
-			return attachment, nil
 		}
-	}
-	return nil, nil
+	}()
 }
 
 // Get the configuration for a Lambda function. If the function does not exist, the returned value will be nil

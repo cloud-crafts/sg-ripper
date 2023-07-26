@@ -47,13 +47,13 @@ func runList(cmd *cobra.Command, args []string) {
 		filters.Status = core.Unused
 	}
 
-	eniUsage, err := core.ListNetworkInterfaces(cmd.Context(), ids, filters, region, profile)
+	enis, err := core.ListNetworkInterfaces(cmd.Context(), ids, filters, region, profile)
 	if err != nil {
 		cmd.PrintErrf("Error: %s", err)
 		return
 	}
-	for _, usage := range eniUsage {
-		err := printEniUsage(usage)
+	for _, eni := range enis {
+		err := printEniUsage(eni)
 		if err != nil {
 			cmd.PrintErrf("Error: %s", err)
 			return
@@ -61,7 +61,7 @@ func runList(cmd *cobra.Command, args []string) {
 	}
 }
 
-func printEniUsage(eni coreTypes.NetworkInterface) error {
+func printEniUsage(eni *coreTypes.NetworkInterfaceDetails) error {
 	pterm.DefaultSection.Printf("%s", eni.Id)
 	var bulletList []pterm.BulletListItem
 	if eni.Description != nil {

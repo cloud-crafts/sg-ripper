@@ -23,35 +23,46 @@ func NewAwsElbClient(cfg aws.Config) *AwsElbClient {
 
 // GetELBAttachment returns a pointer to an ElbAttachment for the network interface. If there is no attachment found,
 // the returned value is a nil.
-func (c *AwsElbClient) GetELBAttachment(ctx context.Context, eni ec2Types.NetworkInterface) (*coreTypes.ElbAttachment, error) {
-	regex := regexp.MustCompile("ELB app/(?P<elbName>.+)/(?P<elbId>([a-z]|[0-9])+)")
-	if eni.InterfaceType == ec2Types.NetworkInterfaceTypeInterface && eni.Description != nil {
-		match := regex.FindStringSubmatch(*eni.Description)
-		if len(match) > 0 {
-			elbName := match[regex.SubexpIndex("elbName")]
+func (c *AwsElbClient) GetELBAttachment(ctx context.Context, eni ec2Types.NetworkInterface, resultCh chan Result[*coreTypes.ElbAttachment]) {
+	go func() {
+		defer close(resultCh)
+		regex := regexp.MustCompile("ELB app/(?P<elbName>.+)/(?P<elbId>([a-z]|[0-9])+)")
+		if eni.InterfaceType == ec2Types.NetworkInterfaceTypeInterface && eni.Description != nil {
+			match := regex.FindStringSubmatch(*eni.Description)
+			if len(match) > 0 {
+				elbName := match[regex.SubexpIndex("elbName")]
 
-			if cachedElb, ok := c.cache[elbName]; ok {
-				return cachedElb, nil
-			}
-
-			loadBalancers, err := c.client.DescribeLoadBalancers(ctx,
-				&elasticloadbalancingv2.DescribeLoadBalancersInput{Names: []string{elbName}})
-			if err != nil {
-				return nil, err
-			}
-
-			for _, elb := range loadBalancers.LoadBalancers {
-				attachment := coreTypes.ElbAttachment{
-					IsRemoved: elb.LoadBalancerArn == nil,
-					Name:      elbName,
-					Arn:       elb.LoadBalancerArn,
+				if cachedElb, ok := c.cache[elbName]; ok {
+					resultCh <- Result[*coreTypes.ElbAttachment]{
+						Data: cachedElb,
+					}
+					return
 				}
-				c.cache[elbName] = &attachment
 
-				// It is expected that we will have only one load balancer as a result
-				return &attachment, nil
+				loadBalancers, err := c.client.DescribeLoadBalancers(ctx,
+					&elasticloadbalancingv2.DescribeLoadBalancersInput{Names: []string{elbName}})
+				if err != nil {
+					resultCh <- Result[*coreTypes.ElbAttachment]{
+						Err: err,
+					}
+					return
+				}
+
+				for _, elb := range loadBalancers.LoadBalancers {
+					attachment := coreTypes.ElbAttachment{
+						IsRemoved: elb.LoadBalancerArn == nil,
+						Name:      elbName,
+						Arn:       elb.LoadBalancerArn,
+					}
+					c.cache[elbName] = &attachment
+
+					// It is expected that we will have only one load balancer as a result
+					resultCh <- Result[*coreTypes.ElbAttachment]{
+						Data: &attachment,
+					}
+					return
+				}
 			}
 		}
-	}
-	return nil, nil
+	}()
 }

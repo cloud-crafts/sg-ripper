@@ -77,24 +77,30 @@ func (c *AwsEc2Client) DescribeSecurityGroupRules(ctx context.Context) ([]ec2Typ
 
 // DescribeNetworkInterfaces returns a list of Network Interfaces according to the interfaces ID slice. If there
 // is no interface id given in the input, all the possible Network Interfaces will be returned
-func (c *AwsEc2Client) DescribeNetworkInterfaces(ctx context.Context, eniIds []string) ([]ec2Types.NetworkInterface, error) {
-	var nextToken *string = nil
-	networkInterfaces := make([]ec2Types.NetworkInterface, 0)
-	for {
-		ifcResponse, err := c.client.DescribeNetworkInterfaces(ctx,
-			&ec2.DescribeNetworkInterfacesInput{NextToken: nextToken, NetworkInterfaceIds: eniIds})
-		if err != nil {
-			return nil, err
-		}
+func (c *AwsEc2Client) DescribeNetworkInterfaces(ctx context.Context, eniIds []string, resultCh chan Result[[]ec2Types.NetworkInterface]) {
+	go func() {
+		defer close(resultCh)
+		var nextToken *string = nil
+		for {
+			ifcResponse, err := c.client.DescribeNetworkInterfaces(ctx,
+				&ec2.DescribeNetworkInterfacesInput{NextToken: nextToken, NetworkInterfaceIds: eniIds})
+			if err != nil {
+				resultCh <- Result[[]ec2Types.NetworkInterface]{
+					Err: err,
+				}
+				return
+			}
 
-		networkInterfaces = append(networkInterfaces, ifcResponse.NetworkInterfaces...)
-		nextToken = ifcResponse.NextToken
+			resultCh <- Result[[]ec2Types.NetworkInterface]{
+				Data: ifcResponse.NetworkInterfaces,
+			}
+			nextToken = ifcResponse.NextToken
 
-		if nextToken == nil {
-			break
+			if nextToken == nil {
+				return
+			}
 		}
-	}
-	return networkInterfaces, nil
+	}()
 }
 
 // DescribeNetworkInterfacesUsedBySecurityGroups returns a list of Network Interfaces used by the security groups from the input slice
@@ -126,41 +132,51 @@ func (c *AwsEc2Client) DescribeNetworkInterfacesUsedBySecurityGroups(ctx context
 
 // GetVpceAttachment returns a pointer to a VpceAttachment for the network interface. If there is no attachment found,
 // the returned value is a nil.
-func (c *AwsEc2Client) GetVpceAttachment(ctx context.Context, eni ec2Types.NetworkInterface) (*coreTypes.VpceAttachment, error) {
-	regex := regexp.MustCompile("VPC Endpoint Interface (?P<vpceId>vpce-([a-z]|[0-9])+)")
-	if eni.InterfaceType == ec2Types.NetworkInterfaceTypeVpcEndpoint && eni.Description != nil {
-		match := regex.FindStringSubmatch(*eni.Description)
+func (c *AwsEc2Client) GetVpceAttachment(ctx context.Context, eni ec2Types.NetworkInterface, resultCh chan Result[*coreTypes.VpceAttachment]) {
+	go func() {
+		defer close(resultCh)
+		regex := regexp.MustCompile("VPC Endpoint Interface (?P<vpceId>vpce-([a-z]|[0-9])+)")
+		if eni.InterfaceType == ec2Types.NetworkInterfaceTypeVpcEndpoint && eni.Description != nil {
+			match := regex.FindStringSubmatch(*eni.Description)
 
-		if len(match) > 0 {
-			vpceId := match[regex.SubexpIndex("vpceId")]
+			if len(match) > 0 {
+				vpceId := match[regex.SubexpIndex("vpceId")]
 
-			if cachedVpce, ok := c.vpceCache[vpceId]; ok {
-				return cachedVpce, nil
-			}
-
-			vpceResponse, err := c.client.DescribeVpcEndpoints(ctx, &ec2.DescribeVpcEndpointsInput{
-				Filters: []ec2Types.Filter{{
-					Name:   aws.String("vpc-endpoint-id"),
-					Values: []string{vpceId},
-				}},
-			})
-			if err != nil {
-				return nil, err
-			}
-
-			for _, vpce := range vpceResponse.VpcEndpoints {
-				attachment := coreTypes.VpceAttachment{
-					IsRemoved:   vpce.VpcEndpointId == nil,
-					Id:          vpce.VpcEndpointId,
-					ServiceName: vpce.ServiceName,
+				if cachedVpce, ok := c.vpceCache[vpceId]; ok {
+					resultCh <- Result[*coreTypes.VpceAttachment]{
+						Data: cachedVpce,
+					}
+					return
 				}
 
-				c.vpceCache[*vpce.VpcEndpointId] = &attachment
+				vpceResponse, err := c.client.DescribeVpcEndpoints(ctx, &ec2.DescribeVpcEndpointsInput{
+					Filters: []ec2Types.Filter{{
+						Name:   aws.String("vpc-endpoint-id"),
+						Values: []string{vpceId},
+					}},
+				})
+				if err != nil {
+					resultCh <- Result[*coreTypes.VpceAttachment]{
+						Err: err,
+					}
+					return
+				}
 
-				// It is expected that we will have only one load balancer as a result
-				return &attachment, nil
+				for _, vpce := range vpceResponse.VpcEndpoints {
+					attachment := coreTypes.VpceAttachment{
+						IsRemoved:   vpce.VpcEndpointId == nil,
+						Id:          vpce.VpcEndpointId,
+						ServiceName: vpce.ServiceName,
+					}
+
+					c.vpceCache[*vpce.VpcEndpointId] = &attachment
+
+					// It is expected that we will have only one load balancer as a result
+					resultCh <- Result[*coreTypes.VpceAttachment]{
+						Data: &attachment,
+					}
+				}
 			}
 		}
-	}
-	return nil, nil
+	}()
 }

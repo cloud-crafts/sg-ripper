@@ -47,22 +47,22 @@ func runList(cmd *cobra.Command, args []string) {
 		filters.Status = core.Unused
 	}
 
-	sgUsage, err := core.ListSecurityGroups(cmd.Context(), ids, filters, region, profile)
+	groups, err := core.ListSecurityGroups(cmd.Context(), ids, filters, region, profile)
 	if err != nil {
 		cmd.PrintErrf("Error: %s", err)
 		return
 	}
-	for _, usage := range sgUsage {
-		printSecurityGroupUsage(usage)
+	for _, sg := range groups {
+		printSecurityGroupDetails(sg)
 	}
 }
 
-func printSecurityGroupUsage(usage types.SecurityGroup) {
-	pterm.DefaultSection.Printf("%s (%s)", usage.Name, usage.Id)
-	reasons := getReasonsAgainstRemoval(usage)
+func printSecurityGroupDetails(sg *types.SecurityGroupDetails) {
+	pterm.DefaultSection.Printf("%s (%s)", sg.Name, sg.Id)
+	reasons := getReasonsAgainstRemoval(sg)
 	bulletList := []pterm.BulletListItem{
-		{Level: 0, Text: fmt.Sprintf("Description: %s", usage.Description)},
-		{Level: 0, Text: fmt.Sprintf("Can be Removed: %t", usage.CanBeRemoved())},
+		{Level: 0, Text: fmt.Sprintf("Description: %s", sg.Description)},
+		{Level: 0, Text: fmt.Sprintf("Can be Removed: %t", sg.CanBeRemoved())},
 	}
 	if len(reasons) > 0 {
 		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Reasons:"})
@@ -70,9 +70,9 @@ func printSecurityGroupUsage(usage types.SecurityGroup) {
 			bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: reason})
 		}
 	}
-	if len(usage.UsedBy) > 0 {
+	if len(sg.UsedBy) > 0 {
 		bulletList = append(bulletList, pterm.BulletListItem{Level: 0, Text: "Used by Network Interface(s):"})
-		for _, eni := range usage.UsedBy {
+		for _, eni := range sg.UsedBy {
 			bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("%s", eni.Id)})
 			if eni.Description != nil {
 				bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf("Description: %s", *eni.Description)})
@@ -146,10 +146,10 @@ func printSecurityGroupUsage(usage types.SecurityGroup) {
 			}
 		}
 	}
-	if len(usage.RuleReferences) > 0 {
+	if len(sg.RuleReferences) > 0 {
 		bulletList = append(bulletList, pterm.BulletListItem{Level: 0,
 			Text: "Referenced by the following Security Groups as an Inbound/Outbound rule:"})
-		for _, ruleRef := range usage.RuleReferences {
+		for _, ruleRef := range sg.RuleReferences {
 			bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("%s", ruleRef)})
 		}
 	}
@@ -159,16 +159,16 @@ func printSecurityGroupUsage(usage types.SecurityGroup) {
 	}
 }
 
-func getReasonsAgainstRemoval(usage types.SecurityGroup) []string {
+func getReasonsAgainstRemoval(sg *types.SecurityGroupDetails) []string {
 	reasons := make([]string, 0)
-	if !usage.CanBeRemoved() {
-		if usage.Default {
-			reasons = append(reasons, fmt.Sprintf("Security Group is Default in VPC %s", usage.VpcId))
+	if !sg.CanBeRemoved() {
+		if sg.Default {
+			reasons = append(reasons, fmt.Sprintf("Security Group is Default in VPC %s", sg.VpcId))
 		}
-		if len(usage.UsedBy) > 0 {
+		if len(sg.UsedBy) > 0 {
 			reasons = append(reasons, "Security Group is used by an ENI")
 		}
-		if len(usage.RuleReferences) > 0 {
+		if len(sg.RuleReferences) > 0 {
 			reasons = append(reasons, "Security Group is references by a Security Group Rule")
 		}
 	}

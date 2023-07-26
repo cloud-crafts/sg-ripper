@@ -22,34 +22,41 @@ func NewAwsEcsClient(cfg aws.Config) *AwsEcsClient {
 
 // GetECSAttachment returns a pointer to an EcsAttachment for the network interface. If there is no attachment found,
 // the returned value is a nil.
-func (c *AwsEcsClient) GetECSAttachment(ctx context.Context, eni ec2Types.NetworkInterface) (*coreTypes.EcsAttachment, error) {
-	var cluster, service *string
-	for _, tag := range eni.TagSet {
-		if tag.Key != nil && *tag.Key == "aws:ecs:clusterName" {
-			cluster = tag.Value
-			continue
+func (c *AwsEcsClient) GetECSAttachment(ctx context.Context, eni ec2Types.NetworkInterface, resultCh chan Result[*coreTypes.EcsAttachment]) {
+	go func() {
+		defer close(resultCh)
+		var cluster, service *string
+		for _, tag := range eni.TagSet {
+			if tag.Key != nil && *tag.Key == "aws:ecs:clusterName" {
+				cluster = tag.Value
+				continue
+			}
+			if tag.Key != nil && *tag.Key == "aws:ecs:serviceName" {
+				service = tag.Value
+			}
 		}
-		if tag.Key != nil && *tag.Key == "aws:ecs:serviceName" {
-			service = tag.Value
+
+		taskArn, container, err := c.getTaskAndContainerInfo(ctx, eni, cluster, service)
+
+		if err != nil {
+			resultCh <- Result[*coreTypes.EcsAttachment]{
+				Err: err,
+			}
+			return
 		}
-	}
 
-	taskArn, container, ecsErr := c.getTaskAndContainerInfo(ctx, eni, cluster, service)
-
-	if ecsErr != nil {
-		return nil, ecsErr
-	}
-
-	if cluster != nil && service != nil {
-		return &coreTypes.EcsAttachment{
-			IsRemoved:     taskArn == nil,
-			ClusterName:   cluster,
-			ServiceName:   service,
-			ContainerName: container,
-			TaskArn:       taskArn,
-		}, nil
-	}
-	return nil, nil
+		if cluster != nil && service != nil {
+			resultCh <- Result[*coreTypes.EcsAttachment]{
+				Data: &coreTypes.EcsAttachment{
+					IsRemoved:     taskArn == nil,
+					ClusterName:   cluster,
+					ServiceName:   service,
+					ContainerName: container,
+					TaskArn:       taskArn,
+				},
+			}
+		}
+	}()
 }
 
 func (c *AwsEcsClient) getTaskAndContainerInfo(ctx context.Context, eni ec2Types.NetworkInterface,

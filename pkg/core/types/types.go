@@ -1,19 +1,19 @@
 package types
 
-type SecurityGroup struct {
+type SecurityGroupDetails struct {
 	Name           string
 	Id             string
 	Description    string
 	Default        bool
-	UsedBy         []*NetworkInterface
+	UsedBy         []*NetworkInterfaceDetails
 	RuleReferences []string
 	VpcId          string
 }
 
-// NewSecurityGroup creates a new SecurityGroup object and returns a pointer to it
-func NewSecurityGroup(name string, id string, description string, usedBy []*NetworkInterface, ruleReferences []string,
-	vpcId string) *SecurityGroup {
-	return &SecurityGroup{
+// NewSecurityGroup creates a new SecurityGroupDetails object and returns a pointer to it
+func NewSecurityGroup(name string, id string, description string, usedBy []*NetworkInterfaceDetails, ruleReferences []string,
+	vpcId string) *SecurityGroupDetails {
+	return &SecurityGroupDetails{
 		Name:           name,
 		Id:             id,
 		Description:    description,
@@ -26,16 +26,16 @@ func NewSecurityGroup(name string, id string, description string, usedBy []*Netw
 
 // IsInUse returns true if the Security Group is in use: it is used by at least one Network Interface, or
 // it is referenced by an SG inbound/outbound rule
-func (u *SecurityGroup) IsInUse() bool {
+func (u *SecurityGroupDetails) IsInUse() bool {
 	return len(u.UsedBy) > 0 || len(u.RuleReferences) > 0
 }
 
 // CanBeRemoved returns true if the Security Group can be removed, meaning it is not in use, or it is not a default SG
-func (u *SecurityGroup) CanBeRemoved() bool {
+func (u *SecurityGroupDetails) CanBeRemoved() bool {
 	return !u.Default && !u.IsInUse()
 }
 
-type NetworkInterface struct {
+type NetworkInterfaceDetails struct {
 	Id                       string
 	Description              *string
 	Type                     string
@@ -49,7 +49,7 @@ type NetworkInterface struct {
 	SecurityGroupIdentifiers []SecurityGroupIdentifier
 }
 
-func (eni *NetworkInterface) IsInUse() bool {
+func (eni *NetworkInterfaceDetails) IsInUse() bool {
 	return eni.Status == "in-use"
 }
 
