@@ -4,8 +4,8 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/config"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"sg-ripper/pkg/core/awsClients"
 	"sg-ripper/pkg/core/builders"
+	"sg-ripper/pkg/core/clients"
 	coreTypes "sg-ripper/pkg/core/types"
 )
 
@@ -30,7 +30,7 @@ func ListSecurityGroups(ctx context.Context, securityGroupIds []string, filters 
 		return nil, err
 	}
 
-	ec2Client := awsClients.NewAwsEc2Client(cfg)
+	ec2Client := clients.NewAwsEc2Client(cfg)
 
 	securityGroups, err := ec2Client.DescribeSecurityGroups(ctx, securityGroupIds)
 	if err != nil {
@@ -42,7 +42,7 @@ func ListSecurityGroups(ctx context.Context, securityGroupIds []string, filters 
 		return nil, err
 	}
 
-	networkInterfaces, err := ec2Client.DescribeNetworkInterfacesUsedBySecurityGroups(ctx, securityGroupIds)
+	networkInterfaces, err := ec2Client.DescribeNetworkInterfacesBySecurityGroups(ctx, securityGroupIds)
 	if err != nil {
 		return nil, err
 	}
@@ -53,13 +53,14 @@ func ListSecurityGroups(ctx context.Context, securityGroupIds []string, filters 
 	for _, sg := range securityGroups {
 		associatedInterfaces := getAssociatedNetworkInterfaces(sg, networkInterfaces)
 
-		enis, err := eniDetailsBuilder.Build(ctx, associatedInterfaces)
+		enis, err := eniDetailsBuilder.FromAwsEniBatch(ctx, associatedInterfaces)
 		if err != nil {
 			return nil, err
 		}
 
-		groups = append(groups, coreTypes.NewSecurityGroup(*sg.GroupName, *sg.GroupId, *sg.Description, enis,
-			getRuleReferences(sg, securityGroupRules), *sg.VpcId))
+		groups = append(groups,
+			coreTypes.NewSecurityGroup(*sg.GroupName, *sg.GroupId, *sg.Description, enis,
+				getRuleReferences(sg, securityGroupRules), *sg.VpcId))
 	}
 
 	return applyFilters(groups, filters), nil

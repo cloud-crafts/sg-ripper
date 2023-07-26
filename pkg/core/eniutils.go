@@ -4,8 +4,8 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/config"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"sg-ripper/pkg/core/awsClients"
 	"sg-ripper/pkg/core/builders"
+	"sg-ripper/pkg/core/clients"
 	coreTypes "sg-ripper/pkg/core/types"
 )
 
@@ -15,22 +15,22 @@ func ListNetworkInterfaces(ctx context.Context, eniIds []string, filters Filters
 		return nil, err
 	}
 
-	ec2Client := awsClients.NewAwsEc2Client(cfg)
+	ec2Client := clients.NewAwsEc2Client(cfg)
 
-	eniCh := make(chan awsClients.Result[[]ec2Types.NetworkInterface])
-	ec2Client.DescribeNetworkInterfaces(ctx, eniIds, eniCh)
+	eniResultCh := make(chan clients.Result[[]ec2Types.NetworkInterface])
+	ec2Client.DescribeNetworkInterfaces(ctx, eniIds, eniResultCh)
 
-	eniUsageInfo := make([]*coreTypes.NetworkInterfaceDetails, 0)
+	enis := make([]*coreTypes.NetworkInterfaceDetails, 0)
 	eniDetailsBuilder := builders.NewEniBuilder(cfg)
-	for result := range eniCh {
-		batch, err := eniDetailsBuilder.Build(ctx, result.Data)
+	for result := range eniResultCh {
+		eniDetailsBatch, err := eniDetailsBuilder.FromAwsEniBatch(ctx, result.Data)
 		if err != nil {
 			return nil, err
 		}
-		eniUsageInfo = append(eniUsageInfo, batch...)
+		enis = append(enis, eniDetailsBatch...)
 	}
 
-	return applyEniFilters(eniUsageInfo, filters), nil
+	return applyEniFilters(enis, filters), nil
 }
 
 // Apply Filters to the list of Network interface usages

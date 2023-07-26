@@ -4,29 +4,29 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"sg-ripper/pkg/core/awsClients"
+	"sg-ripper/pkg/core/clients"
 	coreTypes "sg-ripper/pkg/core/types"
 )
 
-type EniBuilder struct {
-	awsEc2Client    *awsClients.AwsEc2Client
-	awsLambdaClient *awsClients.AwsLambdaClient
-	awsElbClient    *awsClients.AwsElbClient
-	awsEcsClient    *awsClients.AwsEcsClient
+type EniDetailsBuilder struct {
+	awsEc2Client    *clients.AwsEc2Client
+	awsLambdaClient *clients.AwsLambdaClient
+	awsElbClient    *clients.AwsElbClient
+	awsEcsClient    *clients.AwsEcsClient
 	cache           map[string]*coreTypes.NetworkInterfaceDetails
 }
 
-func NewEniBuilder(cfg aws.Config) *EniBuilder {
-	return &EniBuilder{
-		awsEc2Client:    awsClients.NewAwsEc2Client(cfg),
-		awsLambdaClient: awsClients.NewAwsLambdaClient(cfg),
-		awsElbClient:    awsClients.NewAwsElbClient(cfg),
-		awsEcsClient:    awsClients.NewAwsEcsClient(cfg),
+func NewEniBuilder(cfg aws.Config) *EniDetailsBuilder {
+	return &EniDetailsBuilder{
+		awsEc2Client:    clients.NewAwsEc2Client(cfg),
+		awsLambdaClient: clients.NewAwsLambdaClient(cfg),
+		awsElbClient:    clients.NewAwsElbClient(cfg),
+		awsEcsClient:    clients.NewAwsEcsClient(cfg),
 		cache:           make(map[string]*coreTypes.NetworkInterfaceDetails),
 	}
 }
 
-func (e *EniBuilder) Build(ctx context.Context, awsEniBatch []ec2Types.NetworkInterface) ([]*coreTypes.NetworkInterfaceDetails, error) {
+func (e *EniDetailsBuilder) FromAwsEniBatch(ctx context.Context, awsEniBatch []ec2Types.NetworkInterface) ([]*coreTypes.NetworkInterfaceDetails, error) {
 	enis := make([]*coreTypes.NetworkInterfaceDetails, 0)
 
 	for _, awsEni := range awsEniBatch {
@@ -37,19 +37,19 @@ func (e *EniBuilder) Build(ctx context.Context, awsEniBatch []ec2Types.NetworkIn
 			if cachedEni, ok := e.cache[*awsEni.NetworkInterfaceId]; ok {
 				enis = append(enis, cachedEni)
 			} else {
-				lambdaResultCh := make(chan awsClients.Result[*coreTypes.LambdaAttachment])
+				lambdaResultCh := make(chan clients.Result[*coreTypes.LambdaAttachment])
 				var lambdaAttachment *coreTypes.LambdaAttachment
 				e.awsLambdaClient.GetLambdaAttachment(ctx, awsEni, lambdaResultCh)
 
-				ecsResultCh := make(chan awsClients.Result[*coreTypes.EcsAttachment])
+				ecsResultCh := make(chan clients.Result[*coreTypes.EcsAttachment])
 				var ecsAttachment *coreTypes.EcsAttachment
 				e.awsEcsClient.GetECSAttachment(ctx, awsEni, ecsResultCh)
 
-				elbResultCh := make(chan awsClients.Result[*coreTypes.ElbAttachment])
+				elbResultCh := make(chan clients.Result[*coreTypes.ElbAttachment])
 				var elbAttachment *coreTypes.ElbAttachment
 				e.awsElbClient.GetELBAttachment(ctx, awsEni, elbResultCh)
 
-				vpceResultCh := make(chan awsClients.Result[*coreTypes.VpceAttachment])
+				vpceResultCh := make(chan clients.Result[*coreTypes.VpceAttachment])
 				var vpceAttachment *coreTypes.VpceAttachment
 				e.awsEc2Client.GetVpceAttachment(ctx, awsEni, vpceResultCh)
 

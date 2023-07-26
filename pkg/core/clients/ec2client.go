@@ -1,4 +1,4 @@
-package awsClients
+package clients
 
 import (
 	"context"
@@ -103,8 +103,8 @@ func (c *AwsEc2Client) DescribeNetworkInterfaces(ctx context.Context, eniIds []s
 	}()
 }
 
-// DescribeNetworkInterfacesUsedBySecurityGroups returns a list of Network Interfaces used by the security groups from the input slice
-func (c *AwsEc2Client) DescribeNetworkInterfacesUsedBySecurityGroups(ctx context.Context, securityGroupIds []string) ([]ec2Types.NetworkInterface, error) {
+// DescribeNetworkInterfacesBySecurityGroups returns a list of Network Interfaces used by the security groups from the input slice
+func (c *AwsEc2Client) DescribeNetworkInterfacesBySecurityGroups(ctx context.Context, securityGroupIds []string) ([]ec2Types.NetworkInterface, error) {
 	filterName := "group-id"
 	var filters []ec2Types.Filter
 	if len(securityGroupIds) > 0 {
