@@ -37,44 +37,34 @@ func (e *EniDetailsBuilder) FromAwsEniBatch(ctx context.Context, awsEniBatch []e
 			if cachedEni, ok := e.cache[*awsEni.NetworkInterfaceId]; ok {
 				enis = append(enis, cachedEni)
 			} else {
-				lambdaResultCh := make(chan clients.Result[*coreTypes.LambdaAttachment])
+				resultCh := make(chan clients.Result[any])
+
+				asyncFetchers := []func(context.Context, ec2Types.NetworkInterface, chan clients.Result[any]){
+					e.getLambdaAttachmentAsync, e.getEcsAttachmentAsync, e.getElbAttachmentAsync, e.getVpcAttachmentAsync,
+				}
+
+				for _, fn := range asyncFetchers {
+					go fn(ctx, awsEni, resultCh)
+				}
+
 				var lambdaAttachment *coreTypes.LambdaAttachment
-				e.awsLambdaClient.GetLambdaAttachment(ctx, awsEni, lambdaResultCh)
-
-				ecsResultCh := make(chan clients.Result[*coreTypes.EcsAttachment])
 				var ecsAttachment *coreTypes.EcsAttachment
-				e.awsEcsClient.GetECSAttachment(ctx, awsEni, ecsResultCh)
-
-				elbResultCh := make(chan clients.Result[*coreTypes.ElbAttachment])
 				var elbAttachment *coreTypes.ElbAttachment
-				e.awsElbClient.GetELBAttachment(ctx, awsEni, elbResultCh)
-
-				vpceResultCh := make(chan clients.Result[*coreTypes.VpceAttachment])
 				var vpceAttachment *coreTypes.VpceAttachment
-				e.awsEc2Client.GetVpceAttachment(ctx, awsEni, vpceResultCh)
-
-				for i := 0; i < 4; i++ {
-					select {
-					case lambdaAttachRes := <-lambdaResultCh:
-						if lambdaAttachRes.Err != nil {
-							return nil, lambdaAttachRes.Err
-						}
-						lambdaAttachment = lambdaAttachRes.Data
-					case ecsAttachRes := <-ecsResultCh:
-						if ecsAttachRes.Err != nil {
-							return nil, ecsAttachRes.Err
-						}
-						ecsAttachment = ecsAttachRes.Data
-					case elbAttachRes := <-elbResultCh:
-						if elbAttachRes.Err != nil {
-							return nil, elbAttachRes.Err
-						}
-						elbAttachment = elbAttachRes.Data
-					case vpceAttchRes := <-vpceResultCh:
-						if vpceAttchRes.Err != nil {
-							return nil, vpceAttchRes.Err
-						}
-						vpceAttachment = vpceAttchRes.Data
+				for range asyncFetchers {
+					result := <-resultCh
+					if result.Err != nil {
+						return nil, result.Err
+					}
+					switch result.Data.(type) {
+					case *coreTypes.LambdaAttachment:
+						lambdaAttachment = result.Data.(*coreTypes.LambdaAttachment)
+					case *coreTypes.EcsAttachment:
+						ecsAttachment = result.Data.(*coreTypes.EcsAttachment)
+					case *coreTypes.ElbAttachment:
+						elbAttachment = result.Data.(*coreTypes.ElbAttachment)
+					case *coreTypes.VpceAttachment:
+						vpceAttachment = result.Data.(*coreTypes.VpceAttachment)
 					}
 				}
 
@@ -110,6 +100,50 @@ func (e *EniDetailsBuilder) FromAwsEniBatch(ctx context.Context, awsEniBatch []e
 	}
 
 	return enis, nil
+}
+
+func (e *EniDetailsBuilder) getLambdaAttachmentAsync(ctx context.Context, awsEni ec2Types.NetworkInterface, resultCh chan clients.Result[any]) {
+	lambdaAttachment, err := e.awsLambdaClient.GetLambdaAttachment(ctx, awsEni)
+	if err != nil {
+		resultCh <- clients.Result[any]{Err: err}
+		return
+	}
+	resultCh <- clients.Result[any]{
+		Data: lambdaAttachment,
+	}
+}
+
+func (e *EniDetailsBuilder) getEcsAttachmentAsync(ctx context.Context, awsEni ec2Types.NetworkInterface, resultCh chan clients.Result[any]) {
+	ecsAttachment, err := e.awsEcsClient.GetECSAttachment(ctx, awsEni)
+	if err != nil {
+		resultCh <- clients.Result[any]{Err: err}
+		return
+	}
+	resultCh <- clients.Result[any]{
+		Data: ecsAttachment,
+	}
+}
+
+func (e *EniDetailsBuilder) getElbAttachmentAsync(ctx context.Context, awsEni ec2Types.NetworkInterface, resultCh chan clients.Result[any]) {
+	elbAttachment, err := e.awsElbClient.GetELBAttachment(ctx, awsEni)
+	if err != nil {
+		resultCh <- clients.Result[any]{Err: err}
+		return
+	}
+	resultCh <- clients.Result[any]{
+		Data: elbAttachment,
+	}
+}
+
+func (e *EniDetailsBuilder) getVpcAttachmentAsync(ctx context.Context, awsEni ec2Types.NetworkInterface, resultCh chan clients.Result[any]) {
+	vpceAttachment, err := e.awsEc2Client.GetVpceAttachment(ctx, awsEni)
+	if err != nil {
+		resultCh <- clients.Result[any]{Err: err}
+		return
+	}
+	resultCh <- clients.Result[any]{
+		Data: vpceAttachment,
+	}
 }
 
 // Get the IDs of the EC2 instances attached to the Network Interface

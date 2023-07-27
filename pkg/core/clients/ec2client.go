@@ -132,51 +132,41 @@ func (c *AwsEc2Client) DescribeNetworkInterfacesBySecurityGroups(ctx context.Con
 
 // GetVpceAttachment returns a pointer to a VpceAttachment for the network interface. If there is no attachment found,
 // the returned value is a nil.
-func (c *AwsEc2Client) GetVpceAttachment(ctx context.Context, eni ec2Types.NetworkInterface, resultCh chan Result[*coreTypes.VpceAttachment]) {
-	go func() {
-		defer close(resultCh)
-		regex := regexp.MustCompile("VPC Endpoint Interface (?P<vpceId>vpce-([a-z]|[0-9])+)")
-		if eni.InterfaceType == ec2Types.NetworkInterfaceTypeVpcEndpoint && eni.Description != nil {
-			match := regex.FindStringSubmatch(*eni.Description)
+func (c *AwsEc2Client) GetVpceAttachment(ctx context.Context, eni ec2Types.NetworkInterface) (*coreTypes.VpceAttachment, error) {
+	regex := regexp.MustCompile("VPC Endpoint Interface (?P<vpceId>vpce-([a-z]|[0-9])+)")
+	if eni.InterfaceType == ec2Types.NetworkInterfaceTypeVpcEndpoint && eni.Description != nil {
+		match := regex.FindStringSubmatch(*eni.Description)
 
-			if len(match) > 0 {
-				vpceId := match[regex.SubexpIndex("vpceId")]
+		if len(match) > 0 {
+			vpceId := match[regex.SubexpIndex("vpceId")]
 
-				if cachedVpce, ok := c.vpceCache[vpceId]; ok {
-					resultCh <- Result[*coreTypes.VpceAttachment]{
-						Data: cachedVpce,
-					}
-					return
+			if cachedVpce, ok := c.vpceCache[vpceId]; ok {
+				return cachedVpce, nil
+			}
+
+			vpceResponse, err := c.client.DescribeVpcEndpoints(ctx, &ec2.DescribeVpcEndpointsInput{
+				Filters: []ec2Types.Filter{{
+					Name:   aws.String("vpc-endpoint-id"),
+					Values: []string{vpceId},
+				}},
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			for _, vpce := range vpceResponse.VpcEndpoints {
+				attachment := &coreTypes.VpceAttachment{
+					IsRemoved:   vpce.VpcEndpointId == nil,
+					Id:          vpce.VpcEndpointId,
+					ServiceName: vpce.ServiceName,
 				}
 
-				vpceResponse, err := c.client.DescribeVpcEndpoints(ctx, &ec2.DescribeVpcEndpointsInput{
-					Filters: []ec2Types.Filter{{
-						Name:   aws.String("vpc-endpoint-id"),
-						Values: []string{vpceId},
-					}},
-				})
-				if err != nil {
-					resultCh <- Result[*coreTypes.VpceAttachment]{
-						Err: err,
-					}
-					return
-				}
+				c.vpceCache[*vpce.VpcEndpointId] = attachment
 
-				for _, vpce := range vpceResponse.VpcEndpoints {
-					attachment := coreTypes.VpceAttachment{
-						IsRemoved:   vpce.VpcEndpointId == nil,
-						Id:          vpce.VpcEndpointId,
-						ServiceName: vpce.ServiceName,
-					}
-
-					c.vpceCache[*vpce.VpcEndpointId] = &attachment
-
-					// It is expected that we will have only one load balancer as a result
-					resultCh <- Result[*coreTypes.VpceAttachment]{
-						Data: &attachment,
-					}
-				}
+				// It is expected that we will have only one load balancer as a result
+				return attachment, nil
 			}
 		}
-	}()
+	}
+	return nil, nil
 }
