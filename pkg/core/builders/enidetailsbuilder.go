@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"sg-ripper/pkg/core/clients"
 	coreTypes "sg-ripper/pkg/core/types"
 )
@@ -13,7 +14,7 @@ type EniDetailsBuilder struct {
 	awsLambdaClient *clients.AwsLambdaClient
 	awsElbClient    *clients.AwsElbClient
 	awsEcsClient    *clients.AwsEcsClient
-	cache           map[string]*coreTypes.NetworkInterfaceDetails
+	cache           cmap.ConcurrentMap[string, *coreTypes.NetworkInterfaceDetails]
 }
 
 func NewEniBuilder(cfg aws.Config) *EniDetailsBuilder {
@@ -22,7 +23,7 @@ func NewEniBuilder(cfg aws.Config) *EniDetailsBuilder {
 		awsLambdaClient: clients.NewAwsLambdaClient(cfg),
 		awsElbClient:    clients.NewAwsElbClient(cfg),
 		awsEcsClient:    clients.NewAwsEcsClient(cfg),
-		cache:           make(map[string]*coreTypes.NetworkInterfaceDetails),
+		cache:           cmap.New[*coreTypes.NetworkInterfaceDetails](),
 	}
 }
 
@@ -34,7 +35,7 @@ func (e *EniDetailsBuilder) FromAwsEniBatch(ctx context.Context, awsEniBatch []e
 
 			// Check if Network Interface is already in the cache to avoid computing multiple times which resources
 			// are using it
-			if cachedEni, ok := e.cache[*awsEni.NetworkInterfaceId]; ok {
+			if cachedEni, ok := e.cache.Get(*awsEni.NetworkInterfaceId); ok {
 				enis = append(enis, cachedEni)
 			} else {
 				resultCh := make(chan clients.Result[any])
@@ -93,7 +94,7 @@ func (e *EniDetailsBuilder) FromAwsEniBatch(ctx context.Context, awsEniBatch []e
 				}
 
 				// Add the new interface to the cache
-				e.cache[newEni.Id] = newEni
+				e.cache.Set(newEni.Id, newEni)
 				enis = append(enis, newEni)
 			}
 		}

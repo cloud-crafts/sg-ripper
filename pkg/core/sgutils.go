@@ -32,11 +32,6 @@ func ListSecurityGroups(ctx context.Context, securityGroupIds []string, filters 
 
 	ec2Client := clients.NewAwsEc2Client(cfg)
 
-	securityGroups, err := ec2Client.DescribeSecurityGroups(ctx, securityGroupIds)
-	if err != nil {
-		return nil, err
-	}
-
 	securityGroupRules, err := ec2Client.DescribeSecurityGroupRules(ctx)
 	if err != nil {
 		return nil, err
@@ -47,20 +42,27 @@ func ListSecurityGroups(ctx context.Context, securityGroupIds []string, filters 
 		return nil, err
 	}
 
+	sgResultCh := make(chan clients.Result[[]ec2Types.SecurityGroup])
+	ec2Client.DescribeSecurityGroups(ctx, securityGroupIds, sgResultCh)
+
 	eniDetailsBuilder := builders.NewEniBuilder(cfg)
-
 	groups := make([]*coreTypes.SecurityGroupDetails, 0)
-	for _, sg := range securityGroups {
-		associatedInterfaces := getAssociatedNetworkInterfaces(sg, networkInterfaces)
-
-		enis, err := eniDetailsBuilder.FromAwsEniBatch(ctx, associatedInterfaces)
-		if err != nil {
-			return nil, err
+	for sgResult := range sgResultCh {
+		if sgResult.Err != nil {
+			return nil, sgResult.Err
 		}
+		for _, sg := range sgResult.Data {
+			associatedInterfaces := getAssociatedNetworkInterfaces(sg, networkInterfaces)
 
-		groups = append(groups,
-			coreTypes.NewSecurityGroup(*sg.GroupName, *sg.GroupId, *sg.Description, enis,
-				getRuleReferences(sg, securityGroupRules), *sg.VpcId))
+			enis, err := eniDetailsBuilder.FromAwsEniBatch(ctx, associatedInterfaces)
+			if err != nil {
+				return nil, err
+			}
+
+			groups = append(groups,
+				coreTypes.NewSecurityGroup(*sg.GroupName, *sg.GroupId, *sg.Description, enis,
+					getRuleReferences(sg, securityGroupRules), *sg.VpcId))
+		}
 	}
 
 	return applyFilters(groups, filters), nil

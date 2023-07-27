@@ -23,35 +23,39 @@ func NewAwsEc2Client(cfg aws.Config) *AwsEc2Client {
 	}
 }
 
-// DescribeSecurityGroups returns a list of Security Groups based on the list of Security Group IDs provided as an input
-func (c *AwsEc2Client) DescribeSecurityGroups(ctx context.Context, securityGroupIds []string) ([]ec2Types.SecurityGroup, error) {
-	filterName := "group-id"
-	var filters []ec2Types.Filter
-	if len(securityGroupIds) > 0 {
-		filters = append(filters, ec2Types.Filter{Name: &filterName, Values: securityGroupIds})
-	}
+// DescribeSecurityGroups fetches all the Security Groups based on the list of the IDs provided. If the list  is empty,
+// all the existing interfaces will be returned.
+// This function expects a channel to which the response will be provided asynchronously
+func (c *AwsEc2Client) DescribeSecurityGroups(ctx context.Context, securityGroupIds []string,
+	resultCh chan Result[[]ec2Types.SecurityGroup]) {
+	go func() {
+		defer close(resultCh)
 
-	var nextToken *string = nil
-	securityGroups := make([]ec2Types.SecurityGroup, 0)
-	for {
-		sgResponse, err := c.client.DescribeSecurityGroups(ctx,
-			&ec2.DescribeSecurityGroupsInput{
-				NextToken:  nextToken,
-				Filters:    filters,
-				MaxResults: aws.Int32(int32(MaxResults)),
-			})
-		if err != nil {
-			return nil, err
+		var nextToken *string = nil
+		securityGroups := make([]ec2Types.SecurityGroup, 0)
+		for {
+			sgResponse, err := c.client.DescribeSecurityGroups(ctx,
+				&ec2.DescribeSecurityGroupsInput{
+					NextToken: nextToken,
+					GroupIds:  securityGroupIds,
+				})
+			if err != nil {
+				resultCh <- Result[[]ec2Types.SecurityGroup]{
+					Err: err,
+				}
+				return
+			}
+			nextToken = sgResponse.NextToken
+			securityGroups = append(securityGroups, sgResponse.SecurityGroups...)
+
+			if nextToken == nil {
+				resultCh <- Result[[]ec2Types.SecurityGroup]{
+					Data: securityGroups,
+				}
+				return
+			}
 		}
-		nextToken = sgResponse.NextToken
-		securityGroups = append(securityGroups, sgResponse.SecurityGroups...)
-
-		if nextToken == nil {
-			break
-		}
-	}
-
-	return securityGroups, nil
+	}()
 }
 
 // DescribeSecurityGroupRules returns all the Security Group Rules. (TODO: try to optimise this to grab a sublist only)
@@ -75,8 +79,9 @@ func (c *AwsEc2Client) DescribeSecurityGroupRules(ctx context.Context) ([]ec2Typ
 	return securityGroupRules, nil
 }
 
-// DescribeNetworkInterfaces returns a list of Network Interfaces according to the interfaces ID slice. If there
-// is no interface id given in the input, all the possible Network Interfaces will be returned
+// DescribeNetworkInterfaces fetches all the Network Interfaces based on the list of the ENI IDs provided. If the list
+// is empty, all the existing interfaces will be returned.
+// This function expects a channel to which the response will be provided asynchronously
 func (c *AwsEc2Client) DescribeNetworkInterfaces(ctx context.Context, eniIds []string, resultCh chan Result[[]ec2Types.NetworkInterface]) {
 	go func() {
 		defer close(resultCh)

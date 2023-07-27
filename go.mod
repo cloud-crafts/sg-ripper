@@ -11,6 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/lambda v1.37.1
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.37.0
 	github.com/aws/smithy-go v1.13.5
+	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pterm/pterm v0.12.62
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.2
