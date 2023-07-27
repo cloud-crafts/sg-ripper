@@ -8,19 +8,20 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	lambdaTypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/aws/smithy-go"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"regexp"
 	coreTypes "sg-ripper/pkg/core/types"
 )
 
 type AwsLambdaClient struct {
 	client *lambda.Client
-	cache  map[string]*coreTypes.LambdaAttachment
+	cache  cmap.ConcurrentMap[string, *coreTypes.LambdaAttachment]
 }
 
 func NewAwsLambdaClient(cfg aws.Config) *AwsLambdaClient {
 	return &AwsLambdaClient{
 		client: lambda.NewFromConfig(cfg),
-		cache:  make(map[string]*coreTypes.LambdaAttachment),
+		cache:  cmap.New[*coreTypes.LambdaAttachment](),
 	}
 }
 
@@ -33,7 +34,7 @@ func (c *AwsLambdaClient) GetLambdaAttachment(ctx context.Context, eni ec2Types.
 		if len(match) > 0 {
 			fnName := match[regex.SubexpIndex("fnName")]
 
-			if cachedFn, ok := c.cache[fnName]; ok {
+			if cachedFn, ok := c.cache.Get(fnName); ok {
 				return cachedFn, nil
 			}
 
@@ -56,7 +57,7 @@ func (c *AwsLambdaClient) GetLambdaAttachment(ctx context.Context, eni ec2Types.
 				}
 			}
 
-			c.cache[fnName] = attachment
+			c.cache.Set(fnName, attachment)
 			return attachment, nil
 		}
 	}

@@ -5,24 +5,25 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	coreTypes "sg-ripper/pkg/core/types"
 )
 
 type AwsEcsClient struct {
 	client *ecs.Client
-	cache  map[string]*coreTypes.EcsAttachment
+	cache  cmap.ConcurrentMap[string, *coreTypes.EcsAttachment]
 }
 
 func NewAwsEcsClient(cfg aws.Config) *AwsEcsClient {
 	return &AwsEcsClient{
 		client: ecs.NewFromConfig(cfg),
-		cache:  make(map[string]*coreTypes.EcsAttachment),
+		cache:  cmap.New[*coreTypes.EcsAttachment](),
 	}
 }
 
-// GetECSAttachment returns a pointer to an EcsAttachment for the network interface. If there is no attachment found,
+// GetEcsAttachment returns a pointer to an EcsAttachment for the network interface. If there is no attachment found,
 // the returned value is a nil.
-func (c *AwsEcsClient) GetECSAttachment(ctx context.Context, eni ec2Types.NetworkInterface) (*coreTypes.EcsAttachment, error) {
+func (c *AwsEcsClient) GetEcsAttachment(ctx context.Context, eni ec2Types.NetworkInterface) (*coreTypes.EcsAttachment, error) {
 	var cluster, service *string
 	for _, tag := range eni.TagSet {
 		if tag.Key != nil && *tag.Key == "aws:ecs:clusterName" {

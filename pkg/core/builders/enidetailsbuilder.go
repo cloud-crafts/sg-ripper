@@ -6,6 +6,7 @@ import (
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"sg-ripper/pkg/core/clients"
+	"sg-ripper/pkg/core/result"
 	coreTypes "sg-ripper/pkg/core/types"
 )
 
@@ -38,9 +39,9 @@ func (e *EniDetailsBuilder) FromAwsEniBatch(ctx context.Context, awsEniBatch []e
 			if cachedEni, ok := e.cache.Get(*awsEni.NetworkInterfaceId); ok {
 				enis = append(enis, cachedEni)
 			} else {
-				resultCh := make(chan clients.Result[any])
+				resultCh := make(chan result.Result[any])
 
-				asyncFetchers := []func(context.Context, ec2Types.NetworkInterface, chan clients.Result[any]){
+				asyncFetchers := []func(context.Context, ec2Types.NetworkInterface, chan result.Result[any]){
 					e.getLambdaAttachmentAsync, e.getEcsAttachmentAsync, e.getElbAttachmentAsync, e.getVpcAttachmentAsync,
 				}
 
@@ -103,46 +104,46 @@ func (e *EniDetailsBuilder) FromAwsEniBatch(ctx context.Context, awsEniBatch []e
 	return enis, nil
 }
 
-func (e *EniDetailsBuilder) getLambdaAttachmentAsync(ctx context.Context, awsEni ec2Types.NetworkInterface, resultCh chan clients.Result[any]) {
+func (e *EniDetailsBuilder) getLambdaAttachmentAsync(ctx context.Context, awsEni ec2Types.NetworkInterface, resultCh chan result.Result[any]) {
 	lambdaAttachment, err := e.awsLambdaClient.GetLambdaAttachment(ctx, awsEni)
 	if err != nil {
-		resultCh <- clients.Result[any]{Err: err}
+		resultCh <- result.Result[any]{Err: err}
 		return
 	}
-	resultCh <- clients.Result[any]{
+	resultCh <- result.Result[any]{
 		Data: lambdaAttachment,
 	}
 }
 
-func (e *EniDetailsBuilder) getEcsAttachmentAsync(ctx context.Context, awsEni ec2Types.NetworkInterface, resultCh chan clients.Result[any]) {
-	ecsAttachment, err := e.awsEcsClient.GetECSAttachment(ctx, awsEni)
+func (e *EniDetailsBuilder) getEcsAttachmentAsync(ctx context.Context, awsEni ec2Types.NetworkInterface, resultCh chan result.Result[any]) {
+	ecsAttachment, err := e.awsEcsClient.GetEcsAttachment(ctx, awsEni)
 	if err != nil {
-		resultCh <- clients.Result[any]{Err: err}
+		resultCh <- result.Result[any]{Err: err}
 		return
 	}
-	resultCh <- clients.Result[any]{
+	resultCh <- result.Result[any]{
 		Data: ecsAttachment,
 	}
 }
 
-func (e *EniDetailsBuilder) getElbAttachmentAsync(ctx context.Context, awsEni ec2Types.NetworkInterface, resultCh chan clients.Result[any]) {
+func (e *EniDetailsBuilder) getElbAttachmentAsync(ctx context.Context, awsEni ec2Types.NetworkInterface, resultCh chan result.Result[any]) {
 	elbAttachment, err := e.awsElbClient.GetELBAttachment(ctx, awsEni)
 	if err != nil {
-		resultCh <- clients.Result[any]{Err: err}
+		resultCh <- result.Result[any]{Err: err}
 		return
 	}
-	resultCh <- clients.Result[any]{
+	resultCh <- result.Result[any]{
 		Data: elbAttachment,
 	}
 }
 
-func (e *EniDetailsBuilder) getVpcAttachmentAsync(ctx context.Context, awsEni ec2Types.NetworkInterface, resultCh chan clients.Result[any]) {
+func (e *EniDetailsBuilder) getVpcAttachmentAsync(ctx context.Context, awsEni ec2Types.NetworkInterface, resultCh chan result.Result[any]) {
 	vpceAttachment, err := e.awsEc2Client.GetVpceAttachment(ctx, awsEni)
 	if err != nil {
-		resultCh <- clients.Result[any]{Err: err}
+		resultCh <- result.Result[any]{Err: err}
 		return
 	}
-	resultCh <- clients.Result[any]{
+	resultCh <- result.Result[any]{
 		Data: vpceAttachment,
 	}
 }

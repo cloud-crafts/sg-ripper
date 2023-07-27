@@ -5,19 +5,20 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"regexp"
 	coreTypes "sg-ripper/pkg/core/types"
 )
 
 type AwsElbClient struct {
 	client *elasticloadbalancingv2.Client
-	cache  map[string]*coreTypes.ElbAttachment
+	cache  cmap.ConcurrentMap[string, *coreTypes.ElbAttachment]
 }
 
 func NewAwsElbClient(cfg aws.Config) *AwsElbClient {
 	return &AwsElbClient{
 		client: elasticloadbalancingv2.NewFromConfig(cfg),
-		cache:  make(map[string]*coreTypes.ElbAttachment),
+		cache:  cmap.New[*coreTypes.ElbAttachment](),
 	}
 }
 
@@ -30,7 +31,7 @@ func (c *AwsElbClient) GetELBAttachment(ctx context.Context, eni ec2Types.Networ
 		if len(match) > 0 {
 			elbName := match[regex.SubexpIndex("elbName")]
 
-			if cachedElb, ok := c.cache[elbName]; ok {
+			if cachedElb, ok := c.cache.Get(elbName); ok {
 				return cachedElb, nil
 			}
 
@@ -46,7 +47,8 @@ func (c *AwsElbClient) GetELBAttachment(ctx context.Context, eni ec2Types.Networ
 					Name:      elbName,
 					Arn:       elb.LoadBalancerArn,
 				}
-				c.cache[elbName] = attachment
+
+				c.cache.Set(elbName, attachment)
 
 				// It is expected that we will have only one load balancer as a result
 				return attachment, nil

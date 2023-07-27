@@ -5,7 +5,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"regexp"
+	"sg-ripper/pkg/core/result"
 	coreTypes "sg-ripper/pkg/core/types"
 )
 
@@ -13,13 +15,13 @@ const MaxResults = 1000
 
 type AwsEc2Client struct {
 	client    *ec2.Client
-	vpceCache map[string]*coreTypes.VpceAttachment
+	vpceCache cmap.ConcurrentMap[string, *coreTypes.VpceAttachment]
 }
 
 func NewAwsEc2Client(cfg aws.Config) *AwsEc2Client {
 	return &AwsEc2Client{
 		client:    ec2.NewFromConfig(cfg),
-		vpceCache: make(map[string]*coreTypes.VpceAttachment),
+		vpceCache: cmap.New[*coreTypes.VpceAttachment](),
 	}
 }
 
@@ -27,7 +29,7 @@ func NewAwsEc2Client(cfg aws.Config) *AwsEc2Client {
 // all the existing interfaces will be returned.
 // This function expects a channel to which the response will be provided asynchronously
 func (c *AwsEc2Client) DescribeSecurityGroups(ctx context.Context, securityGroupIds []string,
-	resultCh chan Result[[]ec2Types.SecurityGroup]) {
+	resultCh chan result.Result[[]ec2Types.SecurityGroup]) {
 	go func() {
 		defer close(resultCh)
 
@@ -40,7 +42,7 @@ func (c *AwsEc2Client) DescribeSecurityGroups(ctx context.Context, securityGroup
 					GroupIds:  securityGroupIds,
 				})
 			if err != nil {
-				resultCh <- Result[[]ec2Types.SecurityGroup]{
+				resultCh <- result.Result[[]ec2Types.SecurityGroup]{
 					Err: err,
 				}
 				return
@@ -49,7 +51,7 @@ func (c *AwsEc2Client) DescribeSecurityGroups(ctx context.Context, securityGroup
 			securityGroups = append(securityGroups, sgResponse.SecurityGroups...)
 
 			if nextToken == nil {
-				resultCh <- Result[[]ec2Types.SecurityGroup]{
+				resultCh <- result.Result[[]ec2Types.SecurityGroup]{
 					Data: securityGroups,
 				}
 				return
@@ -82,7 +84,7 @@ func (c *AwsEc2Client) DescribeSecurityGroupRules(ctx context.Context) ([]ec2Typ
 // DescribeNetworkInterfaces fetches all the Network Interfaces based on the list of the ENI IDs provided. If the list
 // is empty, all the existing interfaces will be returned.
 // This function expects a channel to which the response will be provided asynchronously
-func (c *AwsEc2Client) DescribeNetworkInterfaces(ctx context.Context, eniIds []string, resultCh chan Result[[]ec2Types.NetworkInterface]) {
+func (c *AwsEc2Client) DescribeNetworkInterfaces(ctx context.Context, eniIds []string, resultCh chan result.Result[[]ec2Types.NetworkInterface]) {
 	go func() {
 		defer close(resultCh)
 		var nextToken *string = nil
@@ -90,13 +92,13 @@ func (c *AwsEc2Client) DescribeNetworkInterfaces(ctx context.Context, eniIds []s
 			ifcResponse, err := c.client.DescribeNetworkInterfaces(ctx,
 				&ec2.DescribeNetworkInterfacesInput{NextToken: nextToken, NetworkInterfaceIds: eniIds})
 			if err != nil {
-				resultCh <- Result[[]ec2Types.NetworkInterface]{
+				resultCh <- result.Result[[]ec2Types.NetworkInterface]{
 					Err: err,
 				}
 				return
 			}
 
-			resultCh <- Result[[]ec2Types.NetworkInterface]{
+			resultCh <- result.Result[[]ec2Types.NetworkInterface]{
 				Data: ifcResponse.NetworkInterfaces,
 			}
 			nextToken = ifcResponse.NextToken
@@ -145,7 +147,7 @@ func (c *AwsEc2Client) GetVpceAttachment(ctx context.Context, eni ec2Types.Netwo
 		if len(match) > 0 {
 			vpceId := match[regex.SubexpIndex("vpceId")]
 
-			if cachedVpce, ok := c.vpceCache[vpceId]; ok {
+			if cachedVpce, ok := c.vpceCache.Get(vpceId); ok {
 				return cachedVpce, nil
 			}
 
@@ -166,7 +168,7 @@ func (c *AwsEc2Client) GetVpceAttachment(ctx context.Context, eni ec2Types.Netwo
 					ServiceName: vpce.ServiceName,
 				}
 
-				c.vpceCache[*vpce.VpcEndpointId] = attachment
+				c.vpceCache.Set(*vpce.VpcEndpointId, attachment)
 
 				// It is expected that we will have only one load balancer as a result
 				return attachment, nil
