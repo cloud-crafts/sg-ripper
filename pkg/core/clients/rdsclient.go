@@ -7,21 +7,18 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	rdsTypes "github.com/aws/aws-sdk-go-v2/service/rds/types"
 	"github.com/hashicorp/go-set"
-	cmap "github.com/orcaman/concurrent-map/v2"
 	coreTypes "sg-ripper/pkg/core/types"
 )
 
 type AwsRdsClient struct {
-	client             *rds.Client
-	rdsAttachmentCache cmap.ConcurrentMap[string, *coreTypes.RdsAttachment]
-	dbInstancesCache   []rdsTypes.DBInstance
+	client           *rds.Client
+	dbInstancesCache []rdsTypes.DBInstance
 }
 
 func NewAwsRdsClient(cfg aws.Config) *AwsRdsClient {
 	return &AwsRdsClient{
-		client:             rds.NewFromConfig(cfg),
-		rdsAttachmentCache: cmap.New[*coreTypes.RdsAttachment](),
-		dbInstancesCache:   make([]rdsTypes.DBInstance, 0),
+		client:           rds.NewFromConfig(cfg),
+		dbInstancesCache: make([]rdsTypes.DBInstance, 0),
 	}
 }
 

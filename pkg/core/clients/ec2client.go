@@ -7,8 +7,8 @@ import (
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"regexp"
-	"sg-ripper/pkg/core/result"
 	coreTypes "sg-ripper/pkg/core/types"
+	"sg-ripper/pkg/core/utils"
 )
 
 const MaxResults = 1000
@@ -29,7 +29,7 @@ func NewAwsEc2Client(cfg aws.Config) *AwsEc2Client {
 // all the existing interfaces will be returned.
 // This function expects a channel to which the response will be provided asynchronously
 func (c *AwsEc2Client) DescribeSecurityGroups(ctx context.Context, securityGroupIds []string,
-	resultCh chan result.Result[[]ec2Types.SecurityGroup]) {
+	resultCh chan utils.Result[[]ec2Types.SecurityGroup]) {
 	go func() {
 		defer close(resultCh)
 
@@ -42,7 +42,7 @@ func (c *AwsEc2Client) DescribeSecurityGroups(ctx context.Context, securityGroup
 					GroupIds:  securityGroupIds,
 				})
 			if err != nil {
-				resultCh <- result.Result[[]ec2Types.SecurityGroup]{
+				resultCh <- utils.Result[[]ec2Types.SecurityGroup]{
 					Err: err,
 				}
 				return
@@ -51,7 +51,7 @@ func (c *AwsEc2Client) DescribeSecurityGroups(ctx context.Context, securityGroup
 			securityGroups = append(securityGroups, sgResponse.SecurityGroups...)
 
 			if nextToken == nil {
-				resultCh <- result.Result[[]ec2Types.SecurityGroup]{
+				resultCh <- utils.Result[[]ec2Types.SecurityGroup]{
 					Data: securityGroups,
 				}
 				return
@@ -84,7 +84,7 @@ func (c *AwsEc2Client) DescribeSecurityGroupRules(ctx context.Context) ([]ec2Typ
 // DescribeNetworkInterfaces fetches all the Network Interfaces based on the list of the ENI IDs provided. If the list
 // is empty, all the existing interfaces will be returned.
 // This function expects a channel to which the response will be provided asynchronously
-func (c *AwsEc2Client) DescribeNetworkInterfaces(ctx context.Context, eniIds []string, resultCh chan result.Result[[]ec2Types.NetworkInterface]) {
+func (c *AwsEc2Client) DescribeNetworkInterfaces(ctx context.Context, eniIds []string, resultCh chan utils.Result[[]ec2Types.NetworkInterface]) {
 	go func() {
 		defer close(resultCh)
 		var nextToken *string = nil
@@ -92,13 +92,13 @@ func (c *AwsEc2Client) DescribeNetworkInterfaces(ctx context.Context, eniIds []s
 			ifcResponse, err := c.client.DescribeNetworkInterfaces(ctx,
 				&ec2.DescribeNetworkInterfacesInput{NextToken: nextToken, NetworkInterfaceIds: eniIds})
 			if err != nil {
-				resultCh <- result.Result[[]ec2Types.NetworkInterface]{
+				resultCh <- utils.Result[[]ec2Types.NetworkInterface]{
 					Err: err,
 				}
 				return
 			}
 
-			resultCh <- result.Result[[]ec2Types.NetworkInterface]{
+			resultCh <- utils.Result[[]ec2Types.NetworkInterface]{
 				Data: ifcResponse.NetworkInterfaces,
 			}
 			nextToken = ifcResponse.NextToken

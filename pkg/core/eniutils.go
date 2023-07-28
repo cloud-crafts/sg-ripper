@@ -6,8 +6,8 @@ import (
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"sg-ripper/pkg/core/builders"
 	"sg-ripper/pkg/core/clients"
-	"sg-ripper/pkg/core/result"
 	coreTypes "sg-ripper/pkg/core/types"
+	"sg-ripper/pkg/core/utils"
 )
 
 // ListNetworkInterfaces returns a slice of NetworkInterfaceDetails based on the input ENI IDs and filters.
@@ -20,7 +20,7 @@ func ListNetworkInterfaces(ctx context.Context, eniIds []string, filters Filters
 
 	ec2Client := clients.NewAwsEc2Client(cfg)
 
-	eniResultCh := make(chan result.Result[[]ec2Types.NetworkInterface])
+	eniResultCh := make(chan utils.Result[[]ec2Types.NetworkInterface])
 	ec2Client.DescribeNetworkInterfaces(ctx, eniIds, eniResultCh)
 
 	enis := make([]coreTypes.NetworkInterfaceDetails, 0)

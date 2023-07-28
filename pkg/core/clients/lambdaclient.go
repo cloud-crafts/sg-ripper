@@ -74,8 +74,9 @@ func (c *AwsLambdaClient) getLambdaFunctionConfigByName(ctx context.Context, cli
 		// Handle error in case the function does not exist. Do not return this error to the caller
 		var apiErr smithy.APIError
 		if errors.As(err, &apiErr) {
-			switch apiErr.(type) {
-			case *lambdaTypes.ResourceNotFoundException:
+			var resourceNotFoundException *lambdaTypes.ResourceNotFoundException
+			switch {
+			case errors.As(apiErr, &resourceNotFoundException):
 				return nil, nil
 			}
 		}

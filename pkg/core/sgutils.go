@@ -6,8 +6,8 @@ import (
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"sg-ripper/pkg/core/builders"
 	"sg-ripper/pkg/core/clients"
-	"sg-ripper/pkg/core/result"
 	coreTypes "sg-ripper/pkg/core/types"
+	"sg-ripper/pkg/core/utils"
 )
 
 const (
@@ -42,7 +42,7 @@ func ListSecurityGroups(ctx context.Context, securityGroupIds []string, filters 
 		return nil, err
 	}
 
-	sgResultCh := make(chan result.Result[[]ec2Types.SecurityGroup])
+	sgResultCh := make(chan utils.Result[[]ec2Types.SecurityGroup])
 	ec2Client.DescribeSecurityGroups(ctx, securityGroupIds, sgResultCh)
 
 	eniDetailsBuilder := builders.NewEniBuilder(cfg)
