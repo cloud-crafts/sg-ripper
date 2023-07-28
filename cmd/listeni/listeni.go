@@ -61,7 +61,7 @@ func runList(cmd *cobra.Command, args []string) {
 	}
 }
 
-func printEniUsage(eni *coreTypes.NetworkInterfaceDetails) error {
+func printEniUsage(eni coreTypes.NetworkInterfaceDetails) error {
 	pterm.DefaultSection.Printf("%s", eni.Id)
 	var bulletList []pterm.BulletListItem
 	if eni.Description != nil {

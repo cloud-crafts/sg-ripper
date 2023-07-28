@@ -30,8 +30,9 @@ func NewEniBuilder(cfg aws.Config) *EniDetailsBuilder {
 	}
 }
 
-func (e *EniDetailsBuilder) FromAwsEniBatch(ctx context.Context, awsEniBatch []ec2Types.NetworkInterface) ([]*coreTypes.NetworkInterfaceDetails, error) {
-	enis := make([]*coreTypes.NetworkInterfaceDetails, 0)
+// FromRemoteInterfaces returns a slice of coreTypes.NetworkInterfaceDetails
+func (e *EniDetailsBuilder) FromRemoteInterfaces(ctx context.Context, awsEniBatch []ec2Types.NetworkInterface) ([]coreTypes.NetworkInterfaceDetails, error) {
+	eniDetails := make([]coreTypes.NetworkInterfaceDetails, 0)
 
 	for _, awsEni := range awsEniBatch {
 		if awsEni.NetworkInterfaceId != nil {
@@ -39,7 +40,7 @@ func (e *EniDetailsBuilder) FromAwsEniBatch(ctx context.Context, awsEniBatch []e
 			// Check if Network Interface is already in the cache to avoid computing multiple times which resources
 			// are using it
 			if cachedEni, ok := e.cache.Get(*awsEni.NetworkInterfaceId); ok {
-				enis = append(enis, cachedEni)
+				eniDetails = append(eniDetails, *cachedEni)
 			} else {
 				resultCh := make(chan result.Result[any])
 
@@ -73,8 +74,6 @@ func (e *EniDetailsBuilder) FromAwsEniBatch(ctx context.Context, awsEniBatch []e
 						vpceAttachment = res.Data.(*coreTypes.VpceAttachment)
 					case []coreTypes.RdsAttachment:
 						rdsAttachments = res.Data.([]coreTypes.RdsAttachment)
-					default:
-						panic("default case")
 					}
 				}
 
@@ -88,7 +87,7 @@ func (e *EniDetailsBuilder) FromAwsEniBatch(ctx context.Context, awsEniBatch []e
 					}
 				}
 
-				newEni := &coreTypes.NetworkInterfaceDetails{
+				newEni := coreTypes.NetworkInterfaceDetails{
 					Id:                       *awsEni.NetworkInterfaceId,
 					Description:              awsEni.Description,
 					Type:                     string(awsEni.InterfaceType),
@@ -104,13 +103,13 @@ func (e *EniDetailsBuilder) FromAwsEniBatch(ctx context.Context, awsEniBatch []e
 				}
 
 				// Add the new interface to the cache
-				e.cache.Set(newEni.Id, newEni)
-				enis = append(enis, newEni)
+				e.cache.Set(newEni.Id, &newEni)
+				eniDetails = append(eniDetails, newEni)
 			}
 		}
 	}
 
-	return enis, nil
+	return eniDetails, nil
 }
 
 func (e *EniDetailsBuilder) getLambdaAttachmentAsync(ctx context.Context, awsEni ec2Types.NetworkInterface, resultCh chan result.Result[any]) {

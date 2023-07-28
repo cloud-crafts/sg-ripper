@@ -10,7 +10,9 @@ import (
 	coreTypes "sg-ripper/pkg/core/types"
 )
 
-func ListNetworkInterfaces(ctx context.Context, eniIds []string, filters Filters, region string, profile string) ([]*coreTypes.NetworkInterfaceDetails, error) {
+// ListNetworkInterfaces returns a slice of NetworkInterfaceDetails based on the input ENI IDs and filters.
+// If the slice with the IDs is empty, all the network interfaces will be retrieved
+func ListNetworkInterfaces(ctx context.Context, eniIds []string, filters Filters, region string, profile string) ([]coreTypes.NetworkInterfaceDetails, error) {
 	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region), config.WithSharedConfigProfile(profile))
 	if err != nil {
 		return nil, err
@@ -21,10 +23,10 @@ func ListNetworkInterfaces(ctx context.Context, eniIds []string, filters Filters
 	eniResultCh := make(chan result.Result[[]ec2Types.NetworkInterface])
 	ec2Client.DescribeNetworkInterfaces(ctx, eniIds, eniResultCh)
 
-	enis := make([]*coreTypes.NetworkInterfaceDetails, 0)
+	enis := make([]coreTypes.NetworkInterfaceDetails, 0)
 	eniDetailsBuilder := builders.NewEniBuilder(cfg)
-	for result := range eniResultCh {
-		eniDetailsBatch, err := eniDetailsBuilder.FromAwsEniBatch(ctx, result.Data)
+	for eniResult := range eniResultCh {
+		eniDetailsBatch, err := eniDetailsBuilder.FromRemoteInterfaces(ctx, eniResult.Data)
 		if err != nil {
 			return nil, err
 		}
@@ -35,29 +37,29 @@ func ListNetworkInterfaces(ctx context.Context, eniIds []string, filters Filters
 }
 
 // Apply Filters to the list of Network interface usages
-func applyEniFilters(enis []*coreTypes.NetworkInterfaceDetails, filters Filters) []*coreTypes.NetworkInterfaceDetails {
+func applyEniFilters(enis []coreTypes.NetworkInterfaceDetails, filters Filters) []coreTypes.NetworkInterfaceDetails {
 	if filters.Status == All {
 		return enis
 	}
 
-	var filterFn func(eni *coreTypes.NetworkInterfaceDetails) bool
+	var filterFn func(eni coreTypes.NetworkInterfaceDetails) bool
 
 	switch filters.Status {
 	case Used:
-		filterFn = func(eni *coreTypes.NetworkInterfaceDetails) bool {
+		filterFn = func(eni coreTypes.NetworkInterfaceDetails) bool {
 			return eni.IsInUse()
 		}
 	case Unused:
-		filterFn = func(eni *coreTypes.NetworkInterfaceDetails) bool {
+		filterFn = func(eni coreTypes.NetworkInterfaceDetails) bool {
 			return !eni.IsInUse()
 		}
 	}
 
-	result := make([]*coreTypes.NetworkInterfaceDetails, 0)
+	filteredEnis := make([]coreTypes.NetworkInterfaceDetails, 0)
 	for _, eni := range enis {
 		if filterFn(eni) {
-			result = append(result, eni)
+			filteredEnis = append(filteredEnis, eni)
 		}
 	}
-	return result
+	return filteredEnis
 }

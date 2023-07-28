@@ -22,10 +22,9 @@ type Filters struct {
 	Status SecurityGroupStatus
 }
 
-// ListSecurityGroups lists the usage of Security Groups of whose IDs are provided in the securityGroupIds slice.
-// If the slice is empty, all the security groups will be retrieved. Furthermore, we can apply filters to retrieved
-// Security Groups, for example: we can grab only the Security Groups which are in use or just unused ones.
-func ListSecurityGroups(ctx context.Context, securityGroupIds []string, filters Filters, region string, profile string) ([]*coreTypes.SecurityGroupDetails, error) {
+// ListSecurityGroups returns a slice of SecurityGroupDetails based on the input Security Group ID list and filters.
+// If the slice with the IDs is empty, all the security groups will be retrieved
+func ListSecurityGroups(ctx context.Context, securityGroupIds []string, filters Filters, region string, profile string) ([]coreTypes.SecurityGroupDetails, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region), config.WithSharedConfigProfile(profile))
 	if err != nil {
 		return nil, err
@@ -48,7 +47,7 @@ func ListSecurityGroups(ctx context.Context, securityGroupIds []string, filters 
 
 	eniDetailsBuilder := builders.NewEniBuilder(cfg)
 
-	groups := make([]*coreTypes.SecurityGroupDetails, 0)
+	groups := make([]coreTypes.SecurityGroupDetails, 0)
 	for sgResult := range sgResultCh {
 		if sgResult.Err != nil {
 			return nil, sgResult.Err
@@ -56,13 +55,13 @@ func ListSecurityGroups(ctx context.Context, securityGroupIds []string, filters 
 		for _, sg := range sgResult.Data {
 			associatedInterfaces := getAssociatedNetworkInterfaces(sg, networkInterfaces)
 
-			enis, err := eniDetailsBuilder.FromAwsEniBatch(ctx, associatedInterfaces)
+			enis, err := eniDetailsBuilder.FromRemoteInterfaces(ctx, associatedInterfaces)
 			if err != nil {
 				return nil, err
 			}
 
 			groups = append(groups,
-				coreTypes.NewSecurityGroup(*sg.GroupName, *sg.GroupId, *sg.Description, enis,
+				*coreTypes.NewSecurityGroup(*sg.GroupName, *sg.GroupId, *sg.Description, enis,
 					getRuleReferences(sg, securityGroupRules), *sg.VpcId))
 		}
 	}
@@ -98,29 +97,29 @@ func getRuleReferences(sg ec2Types.SecurityGroup, securityGroupRules []ec2Types.
 }
 
 // Apply Filters to the list of Security Group usages
-func applyFilters(groups []*coreTypes.SecurityGroupDetails, filters Filters) []*coreTypes.SecurityGroupDetails {
+func applyFilters(groups []coreTypes.SecurityGroupDetails, filters Filters) []coreTypes.SecurityGroupDetails {
 	if filters.Status == All {
 		return groups
 	}
 
-	var filterFn func(sg *coreTypes.SecurityGroupDetails) bool
+	var filterFn func(sg coreTypes.SecurityGroupDetails) bool
 
 	switch filters.Status {
 	case Used:
-		filterFn = func(sg *coreTypes.SecurityGroupDetails) bool {
+		filterFn = func(sg coreTypes.SecurityGroupDetails) bool {
 			return sg.IsInUse()
 		}
 	case Unused:
-		filterFn = func(sg *coreTypes.SecurityGroupDetails) bool {
+		filterFn = func(sg coreTypes.SecurityGroupDetails) bool {
 			return !sg.IsInUse()
 		}
 	}
 
-	result := make([]*coreTypes.SecurityGroupDetails, 0)
+	filteredGroups := make([]coreTypes.SecurityGroupDetails, 0)
 	for _, sg := range groups {
 		if filterFn(sg) {
-			result = append(result, sg)
+			filteredGroups = append(filteredGroups, sg)
 		}
 	}
-	return result
+	return filteredGroups
 }

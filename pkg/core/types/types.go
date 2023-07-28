@@ -5,13 +5,13 @@ type SecurityGroupDetails struct {
 	Id             string
 	Description    string
 	Default        bool
-	UsedBy         []*NetworkInterfaceDetails
+	UsedBy         []NetworkInterfaceDetails
 	RuleReferences []string
 	VpcId          string
 }
 
 // NewSecurityGroup creates a new SecurityGroupDetails object and returns a pointer to it
-func NewSecurityGroup(name string, id string, description string, usedBy []*NetworkInterfaceDetails, ruleReferences []string,
+func NewSecurityGroup(name string, id string, description string, usedBy []NetworkInterfaceDetails, ruleReferences []string,
 	vpcId string) *SecurityGroupDetails {
 	return &SecurityGroupDetails{
 		Name:           name,

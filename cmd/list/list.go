@@ -57,7 +57,7 @@ func runList(cmd *cobra.Command, args []string) {
 	}
 }
 
-func printSecurityGroupDetails(sg *types.SecurityGroupDetails) {
+func printSecurityGroupDetails(sg types.SecurityGroupDetails) {
 	pterm.DefaultSection.Printf("%s (%s)", sg.Name, sg.Id)
 	reasons := getReasonsAgainstRemoval(sg)
 	bulletList := []pterm.BulletListItem{
@@ -166,7 +166,7 @@ func printSecurityGroupDetails(sg *types.SecurityGroupDetails) {
 	}
 }
 
-func getReasonsAgainstRemoval(sg *types.SecurityGroupDetails) []string {
+func getReasonsAgainstRemoval(sg types.SecurityGroupDetails) []string {
 	reasons := make([]string, 0)
 	if !sg.CanBeRemoved() {
 		if sg.Default {
