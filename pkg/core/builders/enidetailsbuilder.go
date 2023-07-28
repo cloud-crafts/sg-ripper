@@ -15,6 +15,7 @@ type EniDetailsBuilder struct {
 	awsLambdaClient *clients.AwsLambdaClient
 	awsElbClient    *clients.AwsElbClient
 	awsEcsClient    *clients.AwsEcsClient
+	awsRdsClient    *clients.AwsRdsClient
 	cache           cmap.ConcurrentMap[string, *coreTypes.NetworkInterfaceDetails]
 }
 
@@ -24,6 +25,7 @@ func NewEniBuilder(cfg aws.Config) *EniDetailsBuilder {
 		awsLambdaClient: clients.NewAwsLambdaClient(cfg),
 		awsElbClient:    clients.NewAwsElbClient(cfg),
 		awsEcsClient:    clients.NewAwsEcsClient(cfg),
+		awsRdsClient:    clients.NewAwsRdsClient(cfg),
 		cache:           cmap.New[*coreTypes.NetworkInterfaceDetails](),
 	}
 }
@@ -43,6 +45,7 @@ func (e *EniDetailsBuilder) FromAwsEniBatch(ctx context.Context, awsEniBatch []e
 
 				asyncFetchers := []func(context.Context, ec2Types.NetworkInterface, chan result.Result[any]){
 					e.getLambdaAttachmentAsync, e.getEcsAttachmentAsync, e.getElbAttachmentAsync, e.getVpcAttachmentAsync,
+					e.getRdsAttachmentAsync,
 				}
 
 				for _, fn := range asyncFetchers {
@@ -53,20 +56,25 @@ func (e *EniDetailsBuilder) FromAwsEniBatch(ctx context.Context, awsEniBatch []e
 				var ecsAttachment *coreTypes.EcsAttachment
 				var elbAttachment *coreTypes.ElbAttachment
 				var vpceAttachment *coreTypes.VpceAttachment
+				var rdsAttachments []coreTypes.RdsAttachment
 				for range asyncFetchers {
-					result := <-resultCh
-					if result.Err != nil {
-						return nil, result.Err
+					res := <-resultCh
+					if res.Err != nil {
+						return nil, res.Err
 					}
-					switch result.Data.(type) {
+					switch res.Data.(type) {
 					case *coreTypes.LambdaAttachment:
-						lambdaAttachment = result.Data.(*coreTypes.LambdaAttachment)
+						lambdaAttachment = res.Data.(*coreTypes.LambdaAttachment)
 					case *coreTypes.EcsAttachment:
-						ecsAttachment = result.Data.(*coreTypes.EcsAttachment)
+						ecsAttachment = res.Data.(*coreTypes.EcsAttachment)
 					case *coreTypes.ElbAttachment:
-						elbAttachment = result.Data.(*coreTypes.ElbAttachment)
+						elbAttachment = res.Data.(*coreTypes.ElbAttachment)
 					case *coreTypes.VpceAttachment:
-						vpceAttachment = result.Data.(*coreTypes.VpceAttachment)
+						vpceAttachment = res.Data.(*coreTypes.VpceAttachment)
+					case []coreTypes.RdsAttachment:
+						rdsAttachments = res.Data.([]coreTypes.RdsAttachment)
+					default:
+						panic("default case")
 					}
 				}
 
@@ -91,6 +99,7 @@ func (e *EniDetailsBuilder) FromAwsEniBatch(ctx context.Context, awsEniBatch []e
 					ECSAttachment:            ecsAttachment,
 					ELBAttachment:            elbAttachment,
 					VpceAttachment:           vpceAttachment,
+					RdsAttachments:           rdsAttachments,
 					SecurityGroupIdentifiers: sgIdentifiers,
 				}
 
@@ -145,6 +154,17 @@ func (e *EniDetailsBuilder) getVpcAttachmentAsync(ctx context.Context, awsEni ec
 	}
 	resultCh <- result.Result[any]{
 		Data: vpceAttachment,
+	}
+}
+
+func (e *EniDetailsBuilder) getRdsAttachmentAsync(ctx context.Context, awsEni ec2Types.NetworkInterface, resultCh chan result.Result[any]) {
+	rdsAttachments, err := e.awsRdsClient.GetRdsAttachments(ctx, awsEni)
+	if err != nil {
+		resultCh <- result.Result[any]{Err: err}
+		return
+	}
+	resultCh <- result.Result[any]{
+		Data: rdsAttachments,
 	}
 }
 

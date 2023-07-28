@@ -46,6 +46,7 @@ type NetworkInterfaceDetails struct {
 	ECSAttachment            *EcsAttachment
 	ELBAttachment            *ElbAttachment
 	VpceAttachment           *VpceAttachment
+	RdsAttachments           []RdsAttachment
 	SecurityGroupIdentifiers []SecurityGroupIdentifier
 }
 
@@ -81,6 +82,11 @@ type VpceAttachment struct {
 	IsRemoved   bool
 	Id          *string
 	ServiceName *string
+}
+
+type RdsAttachment struct {
+	IsRemoved  bool
+	Identifier string
 }
 
 type SecurityGroupIdentifier struct {

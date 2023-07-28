@@ -47,6 +47,7 @@ func ListSecurityGroups(ctx context.Context, securityGroupIds []string, filters 
 	ec2Client.DescribeSecurityGroups(ctx, securityGroupIds, sgResultCh)
 
 	eniDetailsBuilder := builders.NewEniBuilder(cfg)
+
 	groups := make([]*coreTypes.SecurityGroupDetails, 0)
 	for sgResult := range sgResultCh {
 		if sgResult.Err != nil {

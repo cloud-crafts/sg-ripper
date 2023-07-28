@@ -144,6 +144,13 @@ func printSecurityGroupDetails(sg *types.SecurityGroupDetails) {
 						*eni.VpceAttachment.ServiceName, *eni.VpceAttachment.Id)})
 				}
 			}
+			if eni.RdsAttachments != nil {
+				bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: "Used by RDS (might be inaccurate):"})
+				for _, attachment := range eni.RdsAttachments {
+					bulletList = append(bulletList, pterm.BulletListItem{Level: 3, Text: fmt.Sprintf("%s",
+						attachment.Identifier)})
+				}
+			}
 		}
 	}
 	if len(sg.RuleReferences) > 0 {

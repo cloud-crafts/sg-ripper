@@ -9,8 +9,10 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ecs v1.28.1
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.19.14
 	github.com/aws/aws-sdk-go-v2/service/lambda v1.37.1
+	github.com/aws/aws-sdk-go-v2/service/rds v1.48.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.37.0
 	github.com/aws/smithy-go v1.13.5
+	github.com/hashicorp/go-set v0.1.13
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pterm/pterm v0.12.62
 	github.com/spf13/cobra v1.7.0
@@ -37,7 +39,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.19.2 // indirect
 	github.com/containerd/console v1.0.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/gookit/color v1.5.3 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
