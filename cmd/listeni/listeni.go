@@ -1,4 +1,4 @@
-package listEni
+package listeni
 
 import (
 	"fmt"

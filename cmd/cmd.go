@@ -35,7 +35,7 @@ var (
 func init() {
 	includeValidateFlags(rootCmd)
 	rootCmd.AddCommand(list.Cmd)
-	rootCmd.AddCommand(listEni.Cmd)
+	rootCmd.AddCommand(listeni.Cmd)
 }
 
 func includeValidateFlags(cmd *cobra.Command) {
