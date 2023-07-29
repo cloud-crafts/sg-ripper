@@ -41,12 +41,13 @@ type NetworkInterfaceDetails struct {
 	Type                     string
 	ManagedByAWS             bool
 	Status                   string
+	PrivateIPAddress         string
 	EC2Attachment            *Ec2Attachment
 	LambdaAttachment         *LambdaAttachment
 	ECSAttachment            *EcsAttachment
 	ELBAttachment            *ElbAttachment
-	VpceAttachment           *VpceAttachment
-	RdsAttachments           []RdsAttachment
+	VPCEAttachment           *VpceAttachment
+	RDSAttachments           []RdsAttachment
 	SecurityGroupIdentifiers []SecurityGroupIdentifier
 }
 

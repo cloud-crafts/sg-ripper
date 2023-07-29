@@ -17,6 +17,7 @@ Available Commands:
   completion  Generate the autocompletion script for the specified shell
   help        Help about any command
   list        List Security Groups with Details
+  list-eni    List Elastic Network Interfaces with Details
 
 Flags:
   -h, --help             help for sg-ripper
@@ -25,10 +26,14 @@ Flags:
   -v, --version          version for sg-ripper
 ```
 
-Example:
+Examples:
 
 ```shell
-sg-ripper --sg sg-12354
+sg-ripper list --sg sg-12354
+```
+
+```shell
+sg-ripper list-eni --eni eni-1234
 ```
 
 ## Building

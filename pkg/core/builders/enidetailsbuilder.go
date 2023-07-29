@@ -93,12 +93,13 @@ func (e *EniDetailsBuilder) FromRemoteInterfaces(ctx context.Context, awsEniBatc
 					Type:                     string(awsEni.InterfaceType),
 					ManagedByAWS:             *awsEni.RequesterManaged,
 					Status:                   string(awsEni.Status),
+					PrivateIPAddress:         *awsEni.PrivateIpAddress,
 					EC2Attachment:            getEC2Attachment(awsEni),
 					LambdaAttachment:         lambdaAttachment,
 					ECSAttachment:            ecsAttachment,
 					ELBAttachment:            elbAttachment,
-					VpceAttachment:           vpceAttachment,
-					RdsAttachments:           rdsAttachments,
+					VPCEAttachment:           vpceAttachment,
+					RDSAttachments:           rdsAttachments,
 					SecurityGroupIdentifiers: sgIdentifiers,
 				}
 

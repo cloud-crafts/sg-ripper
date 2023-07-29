@@ -68,6 +68,7 @@ func printEniUsage(eni coreTypes.NetworkInterfaceDetails) error {
 		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("Description: %s", *eni.Description)})
 	}
 	bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("Type: %s", eni.Type)})
+	bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("Private IP Address: %s", eni.PrivateIPAddress)})
 	bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("Managed By AWS: %t", eni.ManagedByAWS)})
 	bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("Status: %s", eni.Status)})
 	if eni.EC2Attachment != nil {
@@ -75,7 +76,7 @@ func printEniUsage(eni coreTypes.NetworkInterfaceDetails) error {
 		bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf("%s", eni.EC2Attachment.InstanceId)})
 	}
 	if eni.LambdaAttachment != nil {
-		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Used by Lambda Function:"})
+		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Associated to Lambda Function:"})
 		if eni.LambdaAttachment.IsRemoved {
 			bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf(
 				"%s - Note: This function was already removed. Please wait 15-20 minutes for the ENI to be removed by AWS.",
@@ -86,7 +87,7 @@ func printEniUsage(eni coreTypes.NetworkInterfaceDetails) error {
 		}
 	}
 	if eni.ECSAttachment != nil {
-		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Used by ECS Service:"})
+		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Associated to ECS Container:"})
 
 		service := "unknown"
 		if eni.ECSAttachment.ServiceName != nil {
@@ -113,7 +114,7 @@ func printEniUsage(eni coreTypes.NetworkInterfaceDetails) error {
 		}
 	}
 	if eni.ELBAttachment != nil {
-		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Used by Elastic Load Balancer:"})
+		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Associated to Load Balancer:"})
 		if eni.ELBAttachment.IsRemoved {
 			bulletList = append(bulletList, pterm.BulletListItem{Level: 2,
 				Text: fmt.Sprintf("%s Note: the load balancer was removed. Please try to remove the ENI manually!",
@@ -123,26 +124,34 @@ func printEniUsage(eni coreTypes.NetworkInterfaceDetails) error {
 				eni.ELBAttachment.Name, *eni.ELBAttachment.Arn)})
 		}
 	}
-	if eni.VpceAttachment != nil {
-		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Used by VPC Endpoint:"})
-		if eni.VpceAttachment.IsRemoved {
+	if eni.VPCEAttachment != nil {
+		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Associated to VPC Endpoint:"})
+		if eni.VPCEAttachment.IsRemoved {
 			bulletList = append(bulletList, pterm.BulletListItem{Level: 2,
 				Text: fmt.Sprintf("%s Note: the VPC Endpoint was removed. Please try to remove the ENI manually!",
-					*eni.VpceAttachment.Id)})
+					*eni.VPCEAttachment.Id)})
 		} else {
 			bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf("%s (%s)",
-				*eni.VpceAttachment.ServiceName, *eni.VpceAttachment.Id)})
+				*eni.VPCEAttachment.ServiceName, *eni.VPCEAttachment.Id)})
 		}
 	}
 
-	if eni.SecurityGroupIdentifiers != nil {
-		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Associated Security Groups:"})
-		for _, identifer := range eni.SecurityGroupIdentifiers {
+	if len(eni.RDSAttachments) > 0 {
+		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Associated to RDS instance (might be inaccurate):"})
+		for _, attachment := range eni.RDSAttachments {
+			bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf("%s",
+				attachment.Identifier)})
+		}
+	}
+
+	if len(eni.SecurityGroupIdentifiers) > 0 {
+		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Security Groups:"})
+		for _, identifier := range eni.SecurityGroupIdentifiers {
 			name := "<no-name>"
-			if identifer.Name != nil {
-				name = *identifer.Name
+			if identifier.Name != nil {
+				name = *identifier.Name
 			}
-			bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf("%s (%s)", name, identifer.Id)})
+			bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf("%s (%s)", name, identifier.Id)})
 		}
 	}
 
