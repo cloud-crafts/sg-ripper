@@ -7,6 +7,7 @@ import (
 	"os"
 	"sg-ripper/cmd/list"
 	"sg-ripper/cmd/listEni"
+	"sg-ripper/cmd/remove"
 )
 
 // Execute - parse CLI arguments and execute command
@@ -36,6 +37,7 @@ func init() {
 	includeValidateFlags(rootCmd)
 	rootCmd.AddCommand(list.Cmd)
 	rootCmd.AddCommand(listeni.Cmd)
+	rootCmd.AddCommand(remove.Cmd)
 }
 
 func includeValidateFlags(cmd *cobra.Command) {

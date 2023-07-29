@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"github.com/aws/aws-sdk-go-v2/config"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"sg-ripper/pkg/core/builders"
@@ -67,6 +68,27 @@ func ListSecurityGroups(ctx context.Context, securityGroupIds []string, filters 
 	}
 
 	return applyFilters(groups, filters), nil
+}
+
+func RemoveSecurityGroups(ctx context.Context, securityGroupIds []string, region string, profile string) error {
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region), config.WithSharedConfigProfile(profile))
+	if err != nil {
+		return err
+	}
+
+	ec2Client := clients.NewAwsEc2Client(cfg)
+
+	resultCh := make(chan utils.Result[string])
+	ec2Client.RemoveSecurityGroups(ctx, securityGroupIds, resultCh)
+
+	for res := range resultCh {
+		if res.Err != nil {
+			return res.Err
+		}
+		fmt.Println(fmt.Sprintf("Removed %s", res.Data))
+	}
+
+	return nil
 }
 
 // Get all the Network Interfaces which are associated to one of the Security Groups from the input list

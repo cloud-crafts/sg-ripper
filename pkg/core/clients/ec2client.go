@@ -177,3 +177,22 @@ func (c *AwsEc2Client) GetVpceAttachment(ctx context.Context, eni ec2Types.Netwo
 	}
 	return nil, nil
 }
+
+func (c *AwsEc2Client) RemoveSecurityGroups(ctx context.Context, securityGroupIds []string, resultCh chan utils.Result[string]) {
+	go func() {
+		defer close(resultCh)
+
+		for _, sgId := range securityGroupIds {
+			_, err := c.client.DeleteSecurityGroup(ctx, &ec2.DeleteSecurityGroupInput{GroupId: aws.String(sgId)})
+			if err != nil {
+				resultCh <- utils.Result[string]{
+					Err: err,
+				}
+				return
+			}
+			resultCh <- utils.Result[string]{
+				Data: sgId,
+			}
+		}
+	}()
+}
