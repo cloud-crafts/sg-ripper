@@ -178,7 +178,9 @@ func (c *AwsEc2Client) GetVpceAttachment(ctx context.Context, eni ec2Types.Netwo
 	return nil, nil
 }
 
-func (c *AwsEc2Client) RemoveSecurityGroups(ctx context.Context, securityGroupIds []string, resultCh chan utils.Result[string]) {
+// TryRemoveAllSecurityGroups attempts to remove all the Security Groups from the list of IDs provided as input. If
+// there is an error encountered for a removal, the function will not stop early.
+func (c *AwsEc2Client) TryRemoveAllSecurityGroups(ctx context.Context, securityGroupIds []string, resultCh chan utils.Result[string]) {
 	go func() {
 		defer close(resultCh)
 
@@ -188,7 +190,7 @@ func (c *AwsEc2Client) RemoveSecurityGroups(ctx context.Context, securityGroupId
 				resultCh <- utils.Result[string]{
 					Err: err,
 				}
-				return
+				continue
 			}
 			resultCh <- utils.Result[string]{
 				Data: sgId,

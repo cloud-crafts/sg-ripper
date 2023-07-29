@@ -3,6 +3,7 @@ package remove
 import (
 	"github.com/spf13/cobra"
 	"sg-ripper/pkg/core"
+	"sg-ripper/pkg/core/utils"
 )
 
 var (
@@ -34,10 +35,19 @@ func runRemove(cmd *cobra.Command, args []string) {
 		ids = *sg
 	}
 
-	err := core.RemoveSecurityGroups(cmd.Context(), ids, region, profile)
+	resultCh := make(chan utils.Result[string])
+	err := core.RemoveSecurityGroupsAsync(cmd.Context(), ids, region, profile, resultCh)
 	if err != nil {
-		cmd.PrintErrf("Error: %s", err)
+		cmd.PrintErrf("Error: %s\n", err)
 		return
+	}
+
+	for res := range resultCh {
+		if res.Err != nil {
+			cmd.PrintErrf("Error: %s\n", res.Err)
+		} else {
+			cmd.Printf("Removed Security Group with ID of %s\n", res.Data)
+		}
 	}
 }
 

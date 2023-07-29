@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"fmt"
 	"github.com/aws/aws-sdk-go-v2/config"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"sg-ripper/pkg/core/builders"
@@ -70,7 +69,8 @@ func ListSecurityGroups(ctx context.Context, securityGroupIds []string, filters 
 	return applyFilters(groups, filters), nil
 }
 
-func RemoveSecurityGroups(ctx context.Context, securityGroupIds []string, region string, profile string) error {
+func RemoveSecurityGroupsAsync(ctx context.Context, securityGroupIds []string, region string, profile string,
+	resultCh chan utils.Result[string]) error {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region), config.WithSharedConfigProfile(profile))
 	if err != nil {
 		return err
@@ -78,15 +78,7 @@ func RemoveSecurityGroups(ctx context.Context, securityGroupIds []string, region
 
 	ec2Client := clients.NewAwsEc2Client(cfg)
 
-	resultCh := make(chan utils.Result[string])
-	ec2Client.RemoveSecurityGroups(ctx, securityGroupIds, resultCh)
-
-	for res := range resultCh {
-		if res.Err != nil {
-			return res.Err
-		}
-		fmt.Println(fmt.Sprintf("Removed %s", res.Data))
-	}
+	ec2Client.TryRemoveAllSecurityGroups(ctx, securityGroupIds, resultCh)
 
 	return nil
 }
