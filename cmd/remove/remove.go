@@ -1,6 +1,7 @@
 package remove
 
 import (
+	"fmt"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	"sg-ripper/pkg/core"
@@ -13,31 +14,33 @@ var (
 		Short: "Remove unused security groups.",
 		Long:  "",
 		Run:   runRemove,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			regionFlag := cmd.Flags().Lookup("region")
+			if regionFlag != nil {
+				region = regionFlag.Value.String()
+			}
+
+			profileFlag := cmd.Flags().Lookup("profile")
+			if profileFlag != nil {
+				profile = profileFlag.Value.String()
+			}
+
+			if len(*sg) <= 0 {
+				return fmt.Errorf("no Security Group ID provided")
+			}
+
+			return nil
+		},
 	}
 
-	sg *[]string
+	sg      *[]string
+	region  string
+	profile string
 )
 
 func runRemove(cmd *cobra.Command, args []string) {
-	var region string
-	regionFlag := cmd.Flags().Lookup("region")
-	if regionFlag != nil {
-		region = regionFlag.Value.String()
-	}
-
-	var profile string
-	profileFlag := cmd.Flags().Lookup("profile")
-	if profileFlag != nil {
-		profile = profileFlag.Value.String()
-	}
-
-	var ids []string
-	if sg != nil {
-		ids = *sg
-	}
-
 	resultCh := make(chan utils.Result[string])
-	err := core.RemoveSecurityGroupsAsync(cmd.Context(), ids, region, profile, resultCh)
+	err := core.RemoveSecurityGroupsAsync(cmd.Context(), *sg, region, profile, resultCh)
 	if err != nil {
 		pterm.Error.Println(err)
 		return

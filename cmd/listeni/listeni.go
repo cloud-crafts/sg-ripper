@@ -13,32 +13,30 @@ var (
 		Use:   "list-eni",
 		Short: "List Elastic Network Interfaces with Details",
 		Long:  "",
-		Run:   runList,
+		RunE:  runList,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			regionFlag := cmd.Flags().Lookup("region")
+			if regionFlag != nil {
+				region = regionFlag.Value.String()
+			}
+
+			profileFlag := cmd.Flags().Lookup("profile")
+			if profileFlag != nil {
+				profile = profileFlag.Value.String()
+			}
+
+			return nil
+		},
 	}
 
-	used   bool
-	unused bool
-	sg     *[]string
+	used    bool
+	unused  bool
+	region  string
+	profile string
+	sg      *[]string
 )
 
-func runList(cmd *cobra.Command, args []string) {
-	var region string
-	regionFlag := cmd.Flags().Lookup("region")
-	if regionFlag != nil {
-		region = regionFlag.Value.String()
-	}
-
-	var profile string
-	profileFlag := cmd.Flags().Lookup("profile")
-	if profileFlag != nil {
-		profile = profileFlag.Value.String()
-	}
-
-	var ids []string
-	if sg != nil {
-		ids = *sg
-	}
-
+func runList(cmd *cobra.Command, args []string) error {
 	filters := core.Filters{Status: core.All}
 	if used {
 		filters.Status = core.Used
@@ -47,18 +45,18 @@ func runList(cmd *cobra.Command, args []string) {
 		filters.Status = core.Unused
 	}
 
-	enis, err := core.ListNetworkInterfaces(cmd.Context(), ids, filters, region, profile)
+	enis, err := core.ListNetworkInterfaces(cmd.Context(), *sg, filters, region, profile)
 	if err != nil {
-		cmd.PrintErrf("Error: %s", err)
-		return
+		return err
 	}
 	for _, eni := range enis {
 		err := printEniUsage(eni)
 		if err != nil {
-			cmd.PrintErrf("Error: %s", err)
-			return
+			return err
 		}
 	}
+
+	return nil
 }
 
 func printEniUsage(eni coreTypes.NetworkInterfaceDetails) error {

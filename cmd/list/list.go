@@ -13,32 +13,30 @@ var (
 		Use:   "list",
 		Short: "List Security Groups with Details",
 		Long:  "",
-		Run:   runList,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			regionFlag := cmd.Flags().Lookup("region")
+			if regionFlag != nil {
+				region = regionFlag.Value.String()
+			}
+
+			profileFlag := cmd.Flags().Lookup("profile")
+			if profileFlag != nil {
+				profile = profileFlag.Value.String()
+			}
+
+			return nil
+		},
+		RunE: runList,
 	}
 
-	used   bool
-	unused bool
-	sg     *[]string
+	used    bool
+	unused  bool
+	region  string
+	profile string
+	sg      *[]string
 )
 
-func runList(cmd *cobra.Command, args []string) {
-	var region string
-	regionFlag := cmd.Flags().Lookup("region")
-	if regionFlag != nil {
-		region = regionFlag.Value.String()
-	}
-
-	var profile string
-	profileFlag := cmd.Flags().Lookup("profile")
-	if profileFlag != nil {
-		profile = profileFlag.Value.String()
-	}
-
-	var ids []string
-	if sg != nil {
-		ids = *sg
-	}
-
+func runList(cmd *cobra.Command, args []string) error {
 	filters := core.Filters{Status: core.All}
 	if used {
 		filters.Status = core.Used
@@ -47,14 +45,16 @@ func runList(cmd *cobra.Command, args []string) {
 		filters.Status = core.Unused
 	}
 
-	groups, err := core.ListSecurityGroups(cmd.Context(), ids, filters, region, profile)
+	groups, err := core.ListSecurityGroups(cmd.Context(), *sg, filters, region, profile)
 	if err != nil {
-		cmd.PrintErrf("Error: %s", err)
-		return
+		return err
 	}
+
 	for _, sg := range groups {
 		printSecurityGroupDetails(sg)
 	}
+
+	return nil
 }
 
 func printSecurityGroupDetails(sg types.SecurityGroupDetails) {

@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"log"
 	"os"
 	"sg-ripper/cmd/list"
 	"sg-ripper/cmd/listEni"
@@ -13,7 +13,7 @@ import (
 // Execute - parse CLI arguments and execute command
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Println("There was an error while executing sg-ripper!", err)
+		pterm.Error.Printf("There was an error while executing sg-ripper: %s", err)
 		os.Exit(1)
 	}
 }
