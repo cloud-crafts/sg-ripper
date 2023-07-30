@@ -1,6 +1,7 @@
 package remove
 
 import (
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	"sg-ripper/pkg/core"
 	"sg-ripper/pkg/core/utils"
@@ -38,15 +39,15 @@ func runRemove(cmd *cobra.Command, args []string) {
 	resultCh := make(chan utils.Result[string])
 	err := core.RemoveSecurityGroupsAsync(cmd.Context(), ids, region, profile, resultCh)
 	if err != nil {
-		cmd.PrintErrf("Error: %s\n", err)
+		pterm.Error.Println(err)
 		return
 	}
 
 	for res := range resultCh {
 		if res.Err != nil {
-			cmd.PrintErrf("Error: %s\n", res.Err)
+			pterm.Error.Println(res.Err)
 		} else {
-			cmd.Printf("Removed Security Group with ID of %s\n", res.Data)
+			pterm.Info.Println("Removed Security Group with ID of " + pterm.LightGreen(res.Data))
 		}
 	}
 }

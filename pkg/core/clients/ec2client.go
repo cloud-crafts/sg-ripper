@@ -180,21 +180,32 @@ func (c *AwsEc2Client) GetVpceAttachment(ctx context.Context, eni ec2Types.Netwo
 
 // TryRemoveAllSecurityGroups attempts to remove all the Security Groups from the list of IDs provided as input. If
 // there is an error encountered for a removal, the function will not stop early.
-func (c *AwsEc2Client) TryRemoveAllSecurityGroups(ctx context.Context, securityGroupIds []string, resultCh chan utils.Result[string]) {
-	go func() {
-		defer close(resultCh)
+func (c *AwsEc2Client) TryRemoveAllSecurityGroups(ctx context.Context, securityGroupIds []string,
+	resultCh chan utils.Result[string]) {
+	doneCh := make(chan struct{})
 
-		for _, sgId := range securityGroupIds {
+	for _, sgId := range securityGroupIds {
+		sgId := sgId // capture value
+		go func() {
 			_, err := c.client.DeleteSecurityGroup(ctx, &ec2.DeleteSecurityGroupInput{GroupId: aws.String(sgId)})
 			if err != nil {
 				resultCh <- utils.Result[string]{
 					Err: err,
 				}
-				continue
+			} else {
+				resultCh <- utils.Result[string]{
+					Data: sgId,
+				}
 			}
-			resultCh <- utils.Result[string]{
-				Data: sgId,
-			}
+			doneCh <- struct{}{}
+		}()
+	}
+
+	// Wait for reach async call to finish and close the result channel
+	go func() {
+		for range securityGroupIds {
+			<-doneCh
 		}
+		close(resultCh)
 	}()
 }
