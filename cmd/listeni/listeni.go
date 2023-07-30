@@ -100,7 +100,7 @@ func printEniUsage(eni coreTypes.NetworkInterfaceDetails) error {
 		Level:       1,
 		TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
 		BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
-		Text:        fmt.Sprintf("Managed By AWS: %s", pterm.Cyan(eni.ManagedByAWS)),
+		Text:        fmt.Sprintf("Managed By AWS: %s", cmdutils.GetENIManagedByAWSText(eni.ManagedByAWS)),
 	})
 	bulletList = append(bulletList, pterm.BulletListItem{
 		Level:       1,
@@ -271,9 +271,9 @@ func printEniUsage(eni coreTypes.NetworkInterfaceDetails) error {
 			}
 			bulletList = append(bulletList, pterm.BulletListItem{
 				Level:       2,
-				TextStyle:   pterm.NewStyle(pterm.FgLightYellow),
-				BulletStyle: pterm.NewStyle(pterm.FgLightYellow),
-				Text:        fmt.Sprintf("%s (%s)", name, identifier.Id)})
+				TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
+				BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
+				Text:        fmt.Sprintf("%s (%s)", pterm.LightBlue(name), pterm.LightMagenta(identifier.Id))})
 		}
 	}
 

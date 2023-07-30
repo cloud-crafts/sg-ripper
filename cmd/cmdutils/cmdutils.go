@@ -15,3 +15,10 @@ func GetENIStatusColor(status string) string {
 	}
 	return stylized
 }
+
+func GetENIManagedByAWSText(managedByAWS bool) string {
+	if managedByAWS {
+		return pterm.LightRed("YES")
+	}
+	return pterm.LightGreen("NO")
+}
