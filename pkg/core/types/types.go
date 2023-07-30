@@ -36,19 +36,20 @@ func (u *SecurityGroupDetails) CanBeRemoved() bool {
 }
 
 type NetworkInterfaceDetails struct {
-	Id                       string
-	Description              *string
-	Type                     string
-	ManagedByAWS             bool
-	Status                   string
-	PrivateIPAddress         string
-	EC2Attachment            *Ec2Attachment
-	LambdaAttachment         *LambdaAttachment
-	ECSAttachment            *EcsAttachment
-	ELBAttachment            *ElbAttachment
-	VPCEAttachment           *VpceAttachment
-	RDSAttachments           []RdsAttachment
-	SecurityGroupIdentifiers []SecurityGroupIdentifier
+	Id                          string
+	Description                 *string
+	Type                        string
+	ManagedByAWS                bool
+	Status                      string
+	PrivateIPAddress            string
+	SecondaryPrivateIPAddresses []string
+	EC2Attachment               *Ec2Attachment
+	LambdaAttachment            *LambdaAttachment
+	ECSAttachment               *EcsAttachment
+	ELBAttachment               *ElbAttachment
+	VPCEAttachment              *VpceAttachment
+	RDSAttachments              []RdsAttachment
+	SecurityGroupIdentifiers    []SecurityGroupIdentifier
 }
 
 func (eni *NetworkInterfaceDetails) IsInUse() bool {

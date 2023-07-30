@@ -87,20 +87,34 @@ func (e *EniDetailsBuilder) FromRemoteInterfaces(ctx context.Context, awsEniBatc
 					}
 				}
 
+				var primaryIPAddress string
+				secondaryPrivateIPAddresses := make([]string, 0)
+
+				if awsEni.PrivateIpAddress != nil {
+					primaryIPAddress = *awsEni.PrivateIpAddress
+
+					for _, ip := range awsEni.PrivateIpAddresses {
+						if ip.PrivateIpAddress != nil && primaryIPAddress != *ip.PrivateIpAddress {
+							secondaryPrivateIPAddresses = append(secondaryPrivateIPAddresses, *ip.PrivateIpAddress)
+						}
+					}
+				}
+
 				newEni := coreTypes.NetworkInterfaceDetails{
-					Id:                       *awsEni.NetworkInterfaceId,
-					Description:              awsEni.Description,
-					Type:                     string(awsEni.InterfaceType),
-					ManagedByAWS:             *awsEni.RequesterManaged,
-					Status:                   string(awsEni.Status),
-					PrivateIPAddress:         *awsEni.PrivateIpAddress,
-					EC2Attachment:            getEC2Attachment(awsEni),
-					LambdaAttachment:         lambdaAttachment,
-					ECSAttachment:            ecsAttachment,
-					ELBAttachment:            elbAttachment,
-					VPCEAttachment:           vpceAttachment,
-					RDSAttachments:           rdsAttachments,
-					SecurityGroupIdentifiers: sgIdentifiers,
+					Id:                          *awsEni.NetworkInterfaceId,
+					Description:                 awsEni.Description,
+					Type:                        string(awsEni.InterfaceType),
+					ManagedByAWS:                *awsEni.RequesterManaged,
+					Status:                      string(awsEni.Status),
+					PrivateIPAddress:            primaryIPAddress,
+					SecondaryPrivateIPAddresses: secondaryPrivateIPAddresses,
+					EC2Attachment:               getEC2Attachment(awsEni),
+					LambdaAttachment:            lambdaAttachment,
+					ECSAttachment:               ecsAttachment,
+					ELBAttachment:               elbAttachment,
+					VPCEAttachment:              vpceAttachment,
+					RDSAttachments:              rdsAttachments,
+					SecurityGroupIdentifiers:    sgIdentifiers,
 				}
 
 				// Add the new interface to the cache

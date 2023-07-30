@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"sg-ripper/pkg/core"
 	coreTypes "sg-ripper/pkg/core/types"
+	"strings"
 )
 
 var (
@@ -67,6 +68,9 @@ func printEniUsage(eni coreTypes.NetworkInterfaceDetails) error {
 	}
 	bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("Type: %s", eni.Type)})
 	bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("Private IP Address: %s", eni.PrivateIPAddress)})
+	if len(eni.SecondaryPrivateIPAddresses) > 0 {
+		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("Secondary Private IP Addresses: %s", strings.Join(eni.SecondaryPrivateIPAddresses[:], ", "))})
+	}
 	bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("Managed By AWS: %t", eni.ManagedByAWS)})
 	bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("Status: %s", eni.Status)})
 	if eni.EC2Attachment != nil {
