@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
+	"sg-ripper/cmd/cmdutils"
 	"sg-ripper/pkg/core"
 	coreTypes "sg-ripper/pkg/core/types"
 	"strings"
@@ -64,32 +65,99 @@ func printEniUsage(eni coreTypes.NetworkInterfaceDetails) error {
 	pterm.DefaultSection.Printf("%s", eni.Id)
 	var bulletList []pterm.BulletListItem
 	if eni.Description != nil {
-		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("Description: %s", *eni.Description)})
+		bulletList = append(bulletList, pterm.BulletListItem{
+			Level:       1,
+			TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
+			BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
+			Text:        fmt.Sprintf("Description: %s", pterm.Cyan(*eni.Description)),
+		})
 	}
-	bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("Type: %s", eni.Type)})
-	bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("Private IP Address: %s", eni.PrivateIPAddress)})
+
+	bulletList = append(bulletList, pterm.BulletListItem{
+		Level:       1,
+		TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
+		BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
+		Text:        fmt.Sprintf("Type: %s", pterm.Cyan(eni.Type)),
+	})
+	bulletList = append(bulletList, pterm.BulletListItem{
+		Level:       1,
+		TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
+		BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
+		Text:        fmt.Sprintf("Private IP Address: %s", pterm.Cyan(eni.PrivateIPAddress)),
+	})
+
 	if len(eni.SecondaryPrivateIPAddresses) > 0 {
-		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("Secondary Private IP Addresses: %s", strings.Join(eni.SecondaryPrivateIPAddresses[:], ", "))})
+		bulletList = append(bulletList, pterm.BulletListItem{
+			Level:       1,
+			TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
+			BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
+			Text: fmt.Sprintf("Secondary Private IP Addresses: %s",
+				pterm.Cyan(strings.Join(eni.SecondaryPrivateIPAddresses[:], ", "))),
+		})
 	}
-	bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("Managed By AWS: %t", eni.ManagedByAWS)})
-	bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: fmt.Sprintf("Status: %s", eni.Status)})
+
+	bulletList = append(bulletList, pterm.BulletListItem{
+		Level:       1,
+		TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
+		BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
+		Text:        fmt.Sprintf("Managed By AWS: %s", pterm.Cyan(eni.ManagedByAWS)),
+	})
+	bulletList = append(bulletList, pterm.BulletListItem{
+		Level:       1,
+		TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
+		BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
+		Text:        fmt.Sprintf("Status: %s", cmdutils.GetENIStatusColor(eni.Status)),
+	})
+
 	if eni.EC2Attachment != nil {
-		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Attached to EC2 instance:"})
-		bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf("%s", eni.EC2Attachment.InstanceId)})
+		bulletList = append(bulletList, pterm.BulletListItem{
+			Level:       1,
+			TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
+			BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
+			Text:        "Attached to EC2 instance:"},
+		)
+		bulletList = append(bulletList, pterm.BulletListItem{
+			Level:       2,
+			TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
+			BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
+			Text:        fmt.Sprintf("%s", pterm.Cyan(eni.EC2Attachment.InstanceId)),
+		})
 	}
+
 	if eni.LambdaAttachment != nil {
-		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Associated to Lambda Function:"})
+		bulletList = append(bulletList, pterm.BulletListItem{
+			Level:       1,
+			TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
+			BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
+			Text:        "Associated to Lambda Function:",
+		})
+
 		if eni.LambdaAttachment.IsRemoved {
-			bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf(
-				"%s - Note: This function was already removed. Please wait 15-20 minutes for the ENI to be removed by AWS.",
-				eni.LambdaAttachment.Name)})
+			bulletList = append(bulletList, pterm.BulletListItem{
+				Level:       2,
+				TextStyle:   pterm.NewStyle(pterm.FgLightYellow),
+				BulletStyle: pterm.NewStyle(pterm.FgLightYellow),
+				Text: fmt.Sprintf(
+					"%s - Note: This function was already removed. Please wait 15-20 minutes for the ENI to be removed by AWS.",
+					eni.LambdaAttachment.Name),
+			})
 		} else {
-			bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf("%s (%s)",
-				eni.LambdaAttachment.Name, *eni.LambdaAttachment.Arn)})
+			bulletList = append(bulletList, pterm.BulletListItem{
+				Level:       2,
+				TextStyle:   pterm.NewStyle(pterm.FgLightYellow),
+				BulletStyle: pterm.NewStyle(pterm.FgLightYellow),
+				Text: fmt.Sprintf("%s (%s)",
+					eni.LambdaAttachment.Name, *eni.LambdaAttachment.Arn),
+			})
 		}
 	}
 	if eni.ECSAttachment != nil {
-		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Associated to ECS Container:"})
+		bulletList = append(bulletList, pterm.BulletListItem{
+			Level:       1,
+			TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
+			BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
+			Text:        "Associated to ECS Container:",
+		})
 
 		service := "unknown"
 		if eni.ECSAttachment.ServiceName != nil {
@@ -107,53 +175,105 @@ func printEniUsage(eni coreTypes.NetworkInterfaceDetails) error {
 		}
 
 		if eni.ECSAttachment.IsRemoved {
-			bulletList = append(bulletList, pterm.BulletListItem{Level: 2,
-				Text: fmt.Sprintf("%s\\%s Note: the task was already removed. Please try to remove the ENI manually!",
-					cluster, service)})
+			bulletList = append(bulletList, pterm.BulletListItem{
+				Level:       2,
+				TextStyle:   pterm.NewStyle(pterm.FgLightYellow),
+				BulletStyle: pterm.NewStyle(pterm.FgLightYellow),
+				Text:        fmt.Sprintf("%s\\%s Note: the task was already removed. Please try to remove the ENI manually!", cluster, service),
+			})
 		} else {
-			bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf("%s\\%s (%s)",
-				cluster, service, taskArn)})
+			bulletList = append(bulletList, pterm.BulletListItem{
+				Level:       2,
+				TextStyle:   pterm.NewStyle(pterm.FgLightYellow),
+				BulletStyle: pterm.NewStyle(pterm.FgLightYellow),
+				Text:        fmt.Sprintf("%s\\%s (%s)", cluster, service, taskArn),
+			})
 		}
 	}
 	if eni.ELBAttachment != nil {
-		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Associated to Load Balancer:"})
+		bulletList = append(bulletList, pterm.BulletListItem{
+			Level:       1,
+			TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
+			BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
+			Text:        "Associated to Load Balancer:",
+		})
+
 		if eni.ELBAttachment.IsRemoved {
-			bulletList = append(bulletList, pterm.BulletListItem{Level: 2,
-				Text: fmt.Sprintf("%s Note: the load balancer was removed. Please try to remove the ENI manually!",
-					eni.ELBAttachment.Name)})
+			bulletList = append(bulletList, pterm.BulletListItem{
+				Level:       2,
+				TextStyle:   pterm.NewStyle(pterm.FgLightYellow),
+				BulletStyle: pterm.NewStyle(pterm.FgLightYellow),
+				Text:        fmt.Sprintf("%s Note: the load balancer was removed. Please try to remove the ENI manually!", eni.ELBAttachment.Name),
+			})
 		} else {
-			bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf("%s (%s)",
-				eni.ELBAttachment.Name, *eni.ELBAttachment.Arn)})
+			bulletList = append(bulletList, pterm.BulletListItem{
+				Level:       2,
+				TextStyle:   pterm.NewStyle(pterm.FgLightYellow),
+				BulletStyle: pterm.NewStyle(pterm.FgLightYellow),
+				Text:        fmt.Sprintf("%s (%s)", eni.ELBAttachment.Name, *eni.ELBAttachment.Arn),
+			})
 		}
+
 	}
 	if eni.VPCEAttachment != nil {
-		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Associated to VPC Endpoint:"})
+		bulletList = append(bulletList, pterm.BulletListItem{
+			Level:       1,
+			TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
+			BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
+			Text:        "Associated to VPC Endpoint:",
+		})
 		if eni.VPCEAttachment.IsRemoved {
-			bulletList = append(bulletList, pterm.BulletListItem{Level: 2,
-				Text: fmt.Sprintf("%s Note: the VPC Endpoint was removed. Please try to remove the ENI manually!",
-					*eni.VPCEAttachment.Id)})
+			bulletList = append(bulletList, pterm.BulletListItem{
+				Level:       2,
+				TextStyle:   pterm.NewStyle(pterm.FgLightYellow),
+				BulletStyle: pterm.NewStyle(pterm.FgLightYellow),
+				Text:        fmt.Sprintf("%s Note: the VPC Endpoint was removed. Please try to remove the ENI manually!", *eni.VPCEAttachment.Id),
+			})
 		} else {
-			bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf("%s (%s)",
-				*eni.VPCEAttachment.ServiceName, *eni.VPCEAttachment.Id)})
+			bulletList = append(bulletList, pterm.BulletListItem{
+				Level:       2,
+				TextStyle:   pterm.NewStyle(pterm.FgLightYellow),
+				BulletStyle: pterm.NewStyle(pterm.FgLightYellow),
+				Text:        fmt.Sprintf("%s (%s)", *eni.VPCEAttachment.ServiceName, *eni.VPCEAttachment.Id),
+			})
 		}
 	}
 
 	if len(eni.RDSAttachments) > 0 {
-		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Associated to RDS instance (might be inaccurate):"})
+		bulletList = append(bulletList, pterm.BulletListItem{
+			Level:       1,
+			TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
+			BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
+			Text:        "Associated to RDS instance (might be inaccurate):",
+		})
 		for _, attachment := range eni.RDSAttachments {
-			bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf("%s",
-				attachment.Identifier)})
+			bulletList = append(bulletList, pterm.BulletListItem{
+				Level:       2,
+				TextStyle:   pterm.NewStyle(pterm.FgLightYellow),
+				BulletStyle: pterm.NewStyle(pterm.FgLightYellow),
+				Text: fmt.Sprintf("%s",
+					attachment.Identifier),
+			})
 		}
 	}
 
 	if len(eni.SecurityGroupIdentifiers) > 0 {
-		bulletList = append(bulletList, pterm.BulletListItem{Level: 1, Text: "Security Groups:"})
+		bulletList = append(bulletList, pterm.BulletListItem{
+			Level:       1,
+			TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
+			BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
+			Text:        "Security Groups:",
+		})
 		for _, identifier := range eni.SecurityGroupIdentifiers {
 			name := "<no-name>"
 			if identifier.Name != nil {
 				name = *identifier.Name
 			}
-			bulletList = append(bulletList, pterm.BulletListItem{Level: 2, Text: fmt.Sprintf("%s (%s)", name, identifier.Id)})
+			bulletList = append(bulletList, pterm.BulletListItem{
+				Level:       2,
+				TextStyle:   pterm.NewStyle(pterm.FgLightYellow),
+				BulletStyle: pterm.NewStyle(pterm.FgLightYellow),
+				Text:        fmt.Sprintf("%s (%s)", name, identifier.Id)})
 		}
 	}
 

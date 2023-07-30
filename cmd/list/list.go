@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
+	"sg-ripper/cmd/cmdutils"
 	"sg-ripper/pkg/core"
 	"sg-ripper/pkg/core/types"
 )
@@ -118,21 +119,11 @@ func printSecurityGroupDetails(sg types.SecurityGroupDetails) {
 					Text:        fmt.Sprintf("Description: %s", pterm.Cyan(*eni.Description)),
 				})
 			}
-			var status string
-			if eni.Status == "in-use" {
-				status = pterm.LightRed(eni.Status)
-			} else {
-				if eni.Status == "available" {
-					status = pterm.LightGreen(eni.Status)
-				} else {
-					status = pterm.LightYellow(eni.Status)
-				}
-			}
 			bulletList = append(bulletList, pterm.BulletListItem{
 				Level:       2,
 				TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
 				BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
-				Text:        fmt.Sprintf("Status: %s", status),
+				Text:        fmt.Sprintf("Status: %s", cmdutils.GetENIStatusColor(eni.Status)),
 			})
 			if eni.EC2Attachment != nil {
 				bulletList = append(bulletList, pterm.BulletListItem{
