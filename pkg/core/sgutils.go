@@ -69,20 +69,6 @@ func ListSecurityGroups(ctx context.Context, securityGroupIds []string, filters 
 	return applyFilters(groups, filters), nil
 }
 
-func RemoveSecurityGroupsAsync(ctx context.Context, securityGroupIds []string, region string, profile string,
-	resultCh chan utils.Result[string]) error {
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region), config.WithSharedConfigProfile(profile))
-	if err != nil {
-		return err
-	}
-
-	ec2Client := clients.NewAwsEc2Client(cfg)
-
-	ec2Client.TryRemoveAllSecurityGroups(ctx, securityGroupIds, resultCh)
-
-	return nil
-}
-
 // Get all the Network Interfaces which are associated to one of the Security Groups from the input list
 func getAssociatedNetworkInterfaces(sg ec2Types.SecurityGroup, networkInterfaces []ec2Types.NetworkInterface) []ec2Types.NetworkInterface {
 	associatedInterfaces := make([]ec2Types.NetworkInterface, 0)
@@ -136,4 +122,36 @@ func applyFilters(groups []coreTypes.SecurityGroupDetails, filters Filters) []co
 		}
 	}
 	return filteredGroups
+}
+
+// RemoveSecurityGroupsAsync removes Security Groups based on the input list provided. This function expects a result
+// channel for being able to provide removal information for the caller
+func RemoveSecurityGroupsAsync(ctx context.Context, securityGroupIds []string, region string, profile string,
+	resultCh chan utils.Result[string]) error {
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region), config.WithSharedConfigProfile(profile))
+	if err != nil {
+		return err
+	}
+
+	ec2Client := clients.NewAwsEc2Client(cfg)
+
+	ec2Client.TryRemoveAllSecurityGroups(ctx, securityGroupIds, resultCh)
+
+	return nil
+}
+
+// RemoveENIAsync removes Elastic Network Interfaces based on the input list provided. This function expects a result
+// channel for being able to provide removal information for the caller
+func RemoveENIAsync(ctx context.Context, eniIds []string, region string, profile string,
+	resultCh chan utils.Result[string]) error {
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region), config.WithSharedConfigProfile(profile))
+	if err != nil {
+		return err
+	}
+
+	ec2Client := clients.NewAwsEc2Client(cfg)
+
+	ec2Client.TryRemoveAllENIs(ctx, eniIds, resultCh)
+
+	return nil
 }

@@ -209,3 +209,35 @@ func (c *AwsEc2Client) TryRemoveAllSecurityGroups(ctx context.Context, securityG
 		close(resultCh)
 	}()
 }
+
+// TryRemoveAllENIs attempts to remove all the Elastic Network interfaces from the list of IDs provided as input. If
+// there is an error encountered for a removal, the function will not stop early.
+func (c *AwsEc2Client) TryRemoveAllENIs(ctx context.Context, eniIds []string,
+	resultCh chan utils.Result[string]) {
+	doneCh := make(chan struct{})
+
+	for _, id := range eniIds {
+		id := id // capture value
+		go func() {
+			_, err := c.client.DeleteNetworkInterface(ctx, &ec2.DeleteNetworkInterfaceInput{NetworkInterfaceId: aws.String(id)})
+			if err != nil {
+				resultCh <- utils.Result[string]{
+					Err: err,
+				}
+			} else {
+				resultCh <- utils.Result[string]{
+					Data: id,
+				}
+			}
+			doneCh <- struct{}{}
+		}()
+	}
+
+	// Wait for reach async call to finish and close the result channel
+	go func() {
+		for range eniIds {
+			<-doneCh
+		}
+		close(resultCh)
+	}()
+}

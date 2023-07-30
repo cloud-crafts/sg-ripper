@@ -1,4 +1,4 @@
-package remove
+package removeeni
 
 import (
 	"fmt"
@@ -10,9 +10,9 @@ import (
 
 var (
 	Cmd = &cobra.Command{
-		Use:   "remove",
-		Short: "Remove unused Security Groups.",
-		Run:   runRemove,
+		Use:   "remove-eni",
+		Short: "Remove unused Elastic Network Interfaces.",
+		RunE:  runRemoveENI,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			regionFlag := cmd.Flags().Lookup("region")
 			if regionFlag != nil {
@@ -24,7 +24,7 @@ var (
 				profile = profileFlag.Value.String()
 			}
 
-			if len(*sg) <= 0 {
+			if len(*eni) <= 0 {
 				return fmt.Errorf("no Security Group ID provided")
 			}
 
@@ -32,26 +32,27 @@ var (
 		},
 	}
 
-	sg      *[]string
+	eni     *[]string
 	region  string
 	profile string
 )
 
-func runRemove(cmd *cobra.Command, args []string) {
+func runRemoveENI(cmd *cobra.Command, args []string) error {
 	resultCh := make(chan utils.Result[string])
-	err := core.RemoveSecurityGroupsAsync(cmd.Context(), *sg, region, profile, resultCh)
+	err := core.RemoveENIAsync(cmd.Context(), *eni, region, profile, resultCh)
 	if err != nil {
-		pterm.Error.Println(err)
-		return
+		return err
 	}
 
 	for res := range resultCh {
 		if res.Err != nil {
 			pterm.Error.Println(res.Err)
 		} else {
-			pterm.Info.Println("Removed Security Group with ID of " + pterm.LightGreen(res.Data))
+			pterm.Info.Println("Removed Elastic Network Interface with ID of " + pterm.LightGreen(res.Data))
 		}
 	}
+
+	return nil
 }
 
 func init() {
@@ -59,7 +60,7 @@ func init() {
 }
 
 func includeValidateFlags(cmd *cobra.Command) {
-	sg = cmd.Flags().StringSlice("sg", nil,
-		"Security Group Id to be deleted. It can accept multiple values divided by comma. "+
+	eni = cmd.Flags().StringSlice("eni", nil,
+		"Network Interface ID to be deleted. It can accept multiple values divided by comma. "+
 			"Default: none")
 }

@@ -8,6 +8,7 @@ import (
 	"sg-ripper/cmd/list"
 	"sg-ripper/cmd/listEni"
 	"sg-ripper/cmd/remove"
+	"sg-ripper/cmd/removeeni"
 )
 
 // Execute - parse CLI arguments and execute command
@@ -38,6 +39,7 @@ func init() {
 	rootCmd.AddCommand(list.Cmd)
 	rootCmd.AddCommand(listeni.Cmd)
 	rootCmd.AddCommand(remove.Cmd)
+	rootCmd.AddCommand(removeeni.Cmd)
 
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
 }
