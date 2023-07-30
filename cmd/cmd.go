@@ -38,6 +38,8 @@ func init() {
 	rootCmd.AddCommand(list.Cmd)
 	rootCmd.AddCommand(listeni.Cmd)
 	rootCmd.AddCommand(remove.Cmd)
+
+	rootCmd.CompletionOptions.DisableDefaultCmd = true
 }
 
 func includeValidateFlags(cmd *cobra.Command) {

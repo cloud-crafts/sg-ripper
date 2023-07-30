@@ -14,16 +14,19 @@ Usage:
   sg-ripper [command]
 
 Available Commands:
-  completion  Generate the autocompletion script for the specified shell
   help        Help about any command
   list        List Security Groups with Details
   list-eni    List Elastic Network Interfaces with Details
+  remove      Remove unused security groups.
 
 Flags:
   -h, --help             help for sg-ripper
       --profile string   [Optional] Profile.
       --region string    [Optional] AWS Region.
   -v, --version          version for sg-ripper
+
+Use "sg-ripper [command] --help" for more information about a command.
+
 ```
 
 Examples:
