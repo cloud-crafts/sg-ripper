@@ -13,7 +13,6 @@ var (
 	Cmd = &cobra.Command{
 		Use:   "list",
 		Short: "List Security Groups with Details",
-		Long:  "",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			regionFlag := cmd.Flags().Lookup("region")
 			if regionFlag != nil {
@@ -52,14 +51,15 @@ func runList(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, sg := range groups {
-		printSecurityGroupDetails(sg)
+		return printSecurityGroupDetails(sg)
 	}
 
 	return nil
 }
 
-func printSecurityGroupDetails(sg types.SecurityGroupDetails) {
+func printSecurityGroupDetails(sg types.SecurityGroupDetails) error {
 	pterm.DefaultSection.Printf("%s (%s)", sg.Name, sg.Id)
+
 	reasons := getReasonsAgainstRemoval(sg)
 	var canBeRemoved string
 	if sg.CanBeRemoved() {
@@ -67,6 +67,7 @@ func printSecurityGroupDetails(sg types.SecurityGroupDetails) {
 	} else {
 		canBeRemoved = pterm.LightRed("NO")
 	}
+
 	bulletList := []pterm.BulletListItem{
 		{
 			Level:       0,
@@ -81,6 +82,7 @@ func printSecurityGroupDetails(sg types.SecurityGroupDetails) {
 			Text:        fmt.Sprintf("Can be Removed: %s", canBeRemoved),
 		},
 	}
+
 	if len(reasons) > 0 {
 		bulletList = append(bulletList, pterm.BulletListItem{
 			Level:       1,
@@ -97,6 +99,7 @@ func printSecurityGroupDetails(sg types.SecurityGroupDetails) {
 			})
 		}
 	}
+
 	if len(sg.UsedBy) > 0 {
 		bulletList = append(bulletList, pterm.BulletListItem{
 			Level:       0,
@@ -104,6 +107,7 @@ func printSecurityGroupDetails(sg types.SecurityGroupDetails) {
 			BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
 			Text:        "Used by Network Interface(s):",
 		})
+
 		for _, eni := range sg.UsedBy {
 			bulletList = append(bulletList, pterm.BulletListItem{
 				Level:       1,
@@ -111,6 +115,7 @@ func printSecurityGroupDetails(sg types.SecurityGroupDetails) {
 				BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
 				Text:        fmt.Sprintf("%s (%s)", pterm.LightBlue(eni.Id), pterm.LightMagenta(eni.PrivateIPAddress)),
 			})
+
 			if eni.Description != nil {
 				bulletList = append(bulletList, pterm.BulletListItem{
 					Level:       2,
@@ -119,12 +124,14 @@ func printSecurityGroupDetails(sg types.SecurityGroupDetails) {
 					Text:        fmt.Sprintf("Description: %s", pterm.Cyan(*eni.Description)),
 				})
 			}
+
 			bulletList = append(bulletList, pterm.BulletListItem{
 				Level:       2,
 				TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
 				BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
 				Text:        fmt.Sprintf("Status: %s", cmdutils.GetENIStatusColor(eni.Status)),
 			})
+
 			if eni.EC2Attachment != nil {
 				bulletList = append(bulletList, pterm.BulletListItem{
 					Level:       2,
@@ -139,6 +146,7 @@ func printSecurityGroupDetails(sg types.SecurityGroupDetails) {
 					Text:        fmt.Sprintf("%s", eni.EC2Attachment.InstanceId),
 				})
 			}
+
 			if eni.LambdaAttachment != nil {
 				bulletList = append(bulletList, pterm.BulletListItem{
 					Level:       2,
@@ -146,6 +154,7 @@ func printSecurityGroupDetails(sg types.SecurityGroupDetails) {
 					BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
 					Text:        "Associated to Lambda Function:",
 				})
+
 				if eni.LambdaAttachment.IsRemoved {
 					bulletList = append(bulletList, pterm.BulletListItem{
 						Level:       3,
@@ -163,6 +172,7 @@ func printSecurityGroupDetails(sg types.SecurityGroupDetails) {
 					})
 				}
 			}
+
 			if eni.ECSAttachment != nil {
 				bulletList = append(bulletList, pterm.BulletListItem{
 					Level:       2,
@@ -208,6 +218,7 @@ func printSecurityGroupDetails(sg types.SecurityGroupDetails) {
 					})
 				}
 			}
+
 			if eni.ELBAttachment != nil {
 				bulletList = append(bulletList, pterm.BulletListItem{
 					Level:       2,
@@ -215,6 +226,7 @@ func printSecurityGroupDetails(sg types.SecurityGroupDetails) {
 					BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
 					Text:        "Associated to Load Balancer:",
 				})
+
 				if eni.ELBAttachment.IsRemoved {
 					bulletList = append(bulletList, pterm.BulletListItem{
 						Level:       3,
@@ -233,6 +245,7 @@ func printSecurityGroupDetails(sg types.SecurityGroupDetails) {
 					})
 				}
 			}
+
 			if eni.VPCEAttachment != nil {
 				bulletList = append(bulletList, pterm.BulletListItem{
 					Level:       2,
@@ -240,6 +253,7 @@ func printSecurityGroupDetails(sg types.SecurityGroupDetails) {
 					BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
 					Text:        "Associated to VPC Endpoint:",
 				})
+
 				if eni.VPCEAttachment.IsRemoved {
 					bulletList = append(bulletList, pterm.BulletListItem{
 						Level:       3,
@@ -258,6 +272,7 @@ func printSecurityGroupDetails(sg types.SecurityGroupDetails) {
 					})
 				}
 			}
+
 			if len(eni.RDSAttachments) > 0 {
 				bulletList = append(bulletList, pterm.BulletListItem{
 					Level:       2,
@@ -277,6 +292,7 @@ func printSecurityGroupDetails(sg types.SecurityGroupDetails) {
 			}
 		}
 	}
+
 	if len(sg.RuleReferences) > 0 {
 		bulletList = append(bulletList, pterm.BulletListItem{
 			Level:       0,
@@ -284,6 +300,7 @@ func printSecurityGroupDetails(sg types.SecurityGroupDetails) {
 			BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
 			Text:        "Referenced by the following Security Groups as an Inbound/Outbound rule:",
 		})
+
 		for _, ruleRef := range sg.RuleReferences {
 			bulletList = append(bulletList, pterm.BulletListItem{Level: 1,
 				TextStyle:   pterm.NewStyle(pterm.FgCyan),
@@ -291,10 +308,8 @@ func printSecurityGroupDetails(sg types.SecurityGroupDetails) {
 				Text:        fmt.Sprintf("%s", ruleRef)})
 		}
 	}
-	err := pterm.DefaultBulletList.WithItems(bulletList).Render()
-	if err != nil {
-		return
-	}
+
+	return pterm.DefaultBulletList.WithItems(bulletList).Render()
 }
 
 func getReasonsAgainstRemoval(sg types.SecurityGroupDetails) []string {

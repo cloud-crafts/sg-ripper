@@ -14,7 +14,6 @@ var (
 	Cmd = &cobra.Command{
 		Use:   "list-eni",
 		Short: "List Elastic Network Interfaces with Details",
-		Long:  "",
 		RunE:  runList,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			regionFlag := cmd.Flags().Lookup("region")
@@ -190,6 +189,7 @@ func printEniUsage(eni coreTypes.NetworkInterfaceDetails) error {
 			})
 		}
 	}
+
 	if eni.ELBAttachment != nil {
 		bulletList = append(bulletList, pterm.BulletListItem{
 			Level:       1,
@@ -222,6 +222,7 @@ func printEniUsage(eni coreTypes.NetworkInterfaceDetails) error {
 			BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
 			Text:        "Associated to VPC Endpoint:",
 		})
+
 		if eni.VPCEAttachment.IsRemoved {
 			bulletList = append(bulletList, pterm.BulletListItem{
 				Level:       2,
@@ -246,6 +247,7 @@ func printEniUsage(eni coreTypes.NetworkInterfaceDetails) error {
 			BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
 			Text:        "Associated to RDS instance (might be inaccurate):",
 		})
+
 		for _, attachment := range eni.RDSAttachments {
 			bulletList = append(bulletList, pterm.BulletListItem{
 				Level:       2,
@@ -264,6 +266,7 @@ func printEniUsage(eni coreTypes.NetworkInterfaceDetails) error {
 			BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
 			Text:        "Security Groups:",
 		})
+
 		for _, identifier := range eni.SecurityGroupIdentifiers {
 			name := "<no-name>"
 			if identifier.Name != nil {
@@ -277,12 +280,7 @@ func printEniUsage(eni coreTypes.NetworkInterfaceDetails) error {
 		}
 	}
 
-	err := pterm.DefaultBulletList.WithItems(bulletList).Render()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return pterm.DefaultBulletList.WithItems(bulletList).Render()
 }
 
 func init() {

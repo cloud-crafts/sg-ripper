@@ -24,8 +24,7 @@ var (
 	gitCommit  = "commit"
 	rootCmd    = &cobra.Command{
 		Use:              "sg-ripper",
-		Short:            "sg-ripper.",
-		Long:             ``,
+		Short:            "Security Group and ENI cleaner.",
 		Version:          fmt.Sprintf("%s (%s)", appVersion, gitCommit),
 		TraverseChildren: true,
 	}
