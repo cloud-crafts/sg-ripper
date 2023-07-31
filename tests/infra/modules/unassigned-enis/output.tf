@@ -1,7 +1,9 @@
-output "available_address" {
-  value = data.aws_subnet.private_subnet.available_ip_address_count
+output "unassigned_eni_id" {
+  value = aws_network_interface.eni[*].id
 }
 
-output "cidr" {
-  value = data.aws_subnet.private_subnet.cidr_block
+output "unassigned_eni_ips" {
+  value = {
+    for eni in aws_network_interface.eni : eni.id => eni.private_ip
+  }
 }
