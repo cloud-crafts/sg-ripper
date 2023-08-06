@@ -1,0 +1,90 @@
+project_name: sg-ripper
+
+release:
+  name_template: '{{ .ProjectName }}-{{ .Version }}'
+
+before:
+  hooks:
+    - go mod tidy
+
+changelog:
+  use: github
+  sort: asc
+  abbrev: 0
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: 'Bug fixes'
+      regexp: '^.*?bug(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Others
+      order: 999
+
+  filters:
+    # Commit messages matching the regexp listed here will be removed from
+    # the changelog
+    exclude:
+      - '^docs:'
+      - typo
+      - (?i)foo
+
+builds:
+  - <<: &build_defaults
+      binary: bin/cert-ripper
+      ldflags:
+        - -s -w -X sg-ripper/cmd.appVersion=${{.Version}}" -X cert-ripper-go/cmd.gitCommit=${{.Commit}}
+    id: macos
+    goos: [darwin]
+    goarch: [amd64, arm64]
+
+  - <<: *build_defaults
+    id: linux
+    goos: [linux]
+    goarch: [386, arm, amd64, arm64]
+    env:
+      - CGO_ENABLED=0
+
+  - <<: *build_defaults
+    id: windows
+    goos: [windows]
+    goarch: [386, amd64, arm64]
+
+archives:
+  -
+    id: archive
+    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}-{{ . }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}'
+    format_overrides:
+      - goos: windows
+        format: zip
+
+brews:
+  -
+    goarm: 6
+    goamd64: v1
+
+    tap:
+      owner: cloud-crafts
+      name: homebrew-cloud-crafts
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+
+    url_template: "https://github.com/cloud-crafts/sg-ripper/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+
+    folder: Formula
+    homepage: "https://github.com/cloud-crafts/sg-ripper"
+    description: "AWS Security Group and ENI cleaner.."
+    license: "MIT"
+    skip_upload: auto
+
+    test: |
+      system "#{bin}/sg-ripper", "--help"
+
+    install: |
+      bin.install "bin/sg-ripper"
