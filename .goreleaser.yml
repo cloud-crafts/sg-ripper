@@ -63,7 +63,7 @@ brews:
     goarm: 6
     goamd64: v1
 
-    tap:
+    repository:
       owner: cloud-crafts
       name: homebrew-cloud-crafts
       branch: main
