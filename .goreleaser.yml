@@ -31,9 +31,9 @@ changelog:
 
 builds:
   - <<: &build_defaults
-      binary: bin/cert-ripper
+      binary: bin/sg-ripper
       ldflags:
-        - -s -w -X sg-ripper/cmd.appVersion=${{.Version}}" -X cert-ripper-go/cmd.gitCommit=${{.Commit}}
+        - -s -w -X sg-ripper/cmd.appVersion=${{.Version}}" -X sg-ripper/cmd.gitCommit=${{.Commit}}
     id: macos
     goos: [darwin]
     goarch: [amd64, arm64]
