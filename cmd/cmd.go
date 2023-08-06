@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"os"
 	"sg-ripper/cmd/list"
-	"sg-ripper/cmd/listEni"
+	"sg-ripper/cmd/listeni"
 	"sg-ripper/cmd/remove"
 	"sg-ripper/cmd/removeeni"
 )
