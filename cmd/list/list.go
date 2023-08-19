@@ -51,7 +51,10 @@ func runList(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, sg := range groups {
-		return printSecurityGroupDetails(sg)
+		err := printSecurityGroupDetails(sg)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
