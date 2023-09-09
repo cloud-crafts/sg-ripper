@@ -25,24 +25,29 @@ func NewAwsEcsClient(cfg aws.Config) *AwsEcsClient {
 // GetEcsAttachment returns a pointer to an EcsAttachment for the network interface. If there is no attachment found,
 // the returned value is a nil.
 func (c *AwsEcsClient) GetEcsAttachment(ctx context.Context, eni ec2Types.NetworkInterface) (*coreTypes.EcsAttachment, error) {
-	if c.cache.IsEmpty() {
-		if err := c.buildCache(ctx); err != nil {
+	regex := regexp.MustCompile(".+:ecs:.+:attachment/.+")
+	if eni.Description != nil && regex.MatchString(*eni.Description) {
+		if c.cache.IsEmpty() {
+			if err := c.buildCache(ctx); err != nil {
+				return nil, err
+			}
+		}
+
+		attachment, err := c.getAttachmentFromCache(ctx, eni)
+		if err != nil {
 			return nil, err
 		}
+
+		if attachment == nil {
+			return &coreTypes.EcsAttachment{
+				IsRemoved: true,
+			}, nil
+		}
+
+		return attachment, nil
 	}
 
-	attachment, err := c.getAttachmentFromCache(ctx, eni)
-	if err != nil {
-		return nil, err
-	}
-
-	if attachment == nil {
-		return &coreTypes.EcsAttachment{
-			IsRemoved: true,
-		}, nil
-	}
-
-	return attachment, nil
+	return nil, nil
 }
 
 func (c *AwsEcsClient) buildCache(ctx context.Context) error {
