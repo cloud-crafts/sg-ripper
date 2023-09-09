@@ -6,6 +6,7 @@ import (
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	cmap "github.com/orcaman/concurrent-map/v2"
+	"regexp"
 	coreTypes "sg-ripper/pkg/core/types"
 )
 
@@ -24,82 +25,92 @@ func NewAwsEcsClient(cfg aws.Config) *AwsEcsClient {
 // GetEcsAttachment returns a pointer to an EcsAttachment for the network interface. If there is no attachment found,
 // the returned value is a nil.
 func (c *AwsEcsClient) GetEcsAttachment(ctx context.Context, eni ec2Types.NetworkInterface) (*coreTypes.EcsAttachment, error) {
-	var cluster, service *string
-	for _, tag := range eni.TagSet {
-		if tag.Key != nil && *tag.Key == "aws:ecs:clusterName" {
-			cluster = tag.Value
-			continue
-		}
-		if tag.Key != nil && *tag.Key == "aws:ecs:serviceName" {
-			service = tag.Value
+	if c.cache.IsEmpty() {
+		if err := c.buildCache(ctx); err != nil {
+			return nil, err
 		}
 	}
 
-	taskArn, container, err := c.getTaskAndContainerInfo(ctx, eni, cluster, service)
-
+	attachment, err := c.getAttachmentFromCache(ctx, eni)
 	if err != nil {
 		return nil, err
 	}
 
-	if cluster != nil && service != nil {
+	if attachment == nil {
 		return &coreTypes.EcsAttachment{
-			IsRemoved:     taskArn == nil,
-			ClusterName:   cluster,
-			ServiceName:   service,
-			ContainerName: container,
-			TaskArn:       taskArn,
+			IsRemoved: true,
 		}, nil
 	}
 
-	return nil, nil
+	return attachment, nil
 }
 
-func (c *AwsEcsClient) getTaskAndContainerInfo(ctx context.Context, eni ec2Types.NetworkInterface,
-	cluster, service *string) (*string, *string, error) {
-	if cluster != nil && service != nil {
-		var taskArn, containerName *string
-		var nexToken *string
+func (c *AwsEcsClient) buildCache(ctx context.Context) error {
+	var nexToken *string
+
+	clusterArns := make([]string, 0)
+
+	for {
+		clusters, err := c.client.ListClusters(ctx, &ecs.ListClustersInput{NextToken: nexToken})
+		if err != nil {
+			return err
+		}
+
+		for _, arn := range clusters.ClusterArns {
+			clusterArns = append(clusterArns, arn)
+		}
+
+		if nexToken == nil {
+			break
+		}
+	}
+
+	for _, clusterArn := range clusterArns {
 		for {
-			tasks, err := c.client.ListTasks(ctx, &ecs.ListTasksInput{
-				Cluster:     cluster,
-				ServiceName: service,
-				MaxResults:  aws.Int32(int32(100)), // use 100 to avoid looping for DescribeTasks
-				NextToken:   nexToken,
+			taskResponse, err := c.client.ListTasks(ctx, &ecs.ListTasksInput{
+				Cluster:    &clusterArn,
+				MaxResults: aws.Int32(int32(100)),
+				NextToken:  nexToken,
 			})
 
 			if err != nil {
-				return nil, nil, err
+				return err
 			}
 
-			detailedTasks, taskDescribeErr := c.client.DescribeTasks(ctx, &ecs.DescribeTasksInput{
-				Cluster: cluster,
-				Tasks:   tasks.TaskArns,
+			describeTaskResponse, err := c.client.DescribeTasks(ctx, &ecs.DescribeTasksInput{
+				Tasks:   taskResponse.TaskArns,
+				Cluster: &clusterArn,
 			})
 
-			if taskDescribeErr != nil {
-				return nil, nil, taskDescribeErr
-			}
-
-		out:
-			for _, task := range detailedTasks.Tasks {
+			for _, task := range describeTaskResponse.Tasks {
 				for _, container := range task.Containers {
-					for _, containerEni := range container.NetworkInterfaces {
-						if *eni.PrivateIpAddress == *containerEni.PrivateIpv4Address {
-							containerName = container.Name
-							taskArn = task.TaskArn
-							break out
-						}
+					for _, ifc := range container.NetworkInterfaces {
+						c.cache.Set(*ifc.AttachmentId, &coreTypes.EcsAttachment{
+							ClusterArn:    &clusterArn,
+							ContainerName: container.Name,
+							TaskArn:       task.TaskArn,
+						})
 					}
 				}
 			}
 
-			if tasks.NextToken != nil {
-				nexToken = tasks.NextToken
-			} else {
+			if nexToken == nil {
 				break
 			}
 		}
-		return taskArn, containerName, nil
 	}
-	return nil, nil, nil
+
+	return nil
+}
+
+func (c *AwsEcsClient) getAttachmentFromCache(ctx context.Context, eni ec2Types.NetworkInterface) (*coreTypes.EcsAttachment, error) {
+	regex := regexp.MustCompile(".+attachment/(?P<attachmentId>.+)")
+	match := regex.FindStringSubmatch(*eni.Description)
+	if len(match) > 0 {
+		attachmentId := match[regex.SubexpIndex("attachmentId")]
+		if attachment, ok := c.cache.Get(attachmentId); ok {
+			return attachment, nil
+		}
+	}
+	return nil, nil
 }

@@ -158,14 +158,9 @@ func printEniUsage(eni coreTypes.NetworkInterfaceDetails) error {
 			Text:        "Associated to ECS Container:",
 		})
 
-		service := "unknown"
-		if eni.ECSAttachment.ServiceName != nil {
-			service = *eni.ECSAttachment.ServiceName
-		}
-
 		cluster := "unknown"
-		if eni.ECSAttachment.ClusterName != nil {
-			cluster = *eni.ECSAttachment.ClusterName
+		if eni.ECSAttachment.ClusterArn != nil {
+			cluster = *eni.ECSAttachment.ClusterArn
 		}
 
 		taskArn := "unknown"
@@ -173,19 +168,35 @@ func printEniUsage(eni coreTypes.NetworkInterfaceDetails) error {
 			taskArn = *eni.ECSAttachment.TaskArn
 		}
 
+		container := "unknown"
+		if eni.ECSAttachment.ContainerName != nil {
+			container = *eni.ECSAttachment.ContainerName
+		}
+
 		if eni.ECSAttachment.IsRemoved {
 			bulletList = append(bulletList, pterm.BulletListItem{
 				Level:       2,
 				TextStyle:   pterm.NewStyle(pterm.FgLightYellow),
 				BulletStyle: pterm.NewStyle(pterm.FgLightYellow),
-				Text:        fmt.Sprintf("%s\\%s Note: the task was already removed. Please try to remove the ENI manually!", cluster, service),
-			})
+				Text:        "Note: the associated task was already removed. Please try to remove the ENI manually!"})
 		} else {
 			bulletList = append(bulletList, pterm.BulletListItem{
 				Level:       2,
-				TextStyle:   pterm.NewStyle(pterm.FgLightYellow),
-				BulletStyle: pterm.NewStyle(pterm.FgLightYellow),
-				Text:        fmt.Sprintf("%s\\%s (%s)", cluster, service, taskArn),
+				TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
+				BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
+				Text:        fmt.Sprintf("Cluster: %s", pterm.Cyan(cluster)),
+			})
+			bulletList = append(bulletList, pterm.BulletListItem{
+				Level:       2,
+				TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
+				BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
+				Text:        fmt.Sprintf("Task: %s", pterm.Cyan(taskArn)),
+			})
+			bulletList = append(bulletList, pterm.BulletListItem{
+				Level:       2,
+				TextStyle:   pterm.NewStyle(pterm.FgLightWhite),
+				BulletStyle: pterm.NewStyle(pterm.FgLightWhite),
+				Text:        fmt.Sprintf("Container: %s", pterm.Cyan(container)),
 			})
 		}
 	}

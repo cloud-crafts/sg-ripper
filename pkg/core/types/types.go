@@ -68,8 +68,7 @@ type LambdaAttachment struct {
 
 type EcsAttachment struct {
 	IsRemoved     bool
-	ServiceName   *string
-	ClusterName   *string
+	ClusterArn    *string
 	ContainerName *string
 	TaskArn       *string
 }
