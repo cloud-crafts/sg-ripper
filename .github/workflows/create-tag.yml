@@ -1,0 +1,19 @@
+name: Create Tag
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    if: github.event.pull_request.merged
+
+    steps:
+      - name: Tag
+        uses: cloud-crafts/semver-release-action@v1.5.0
+        with:
+          release_branch: master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
