@@ -33,7 +33,9 @@ builds:
   - <<: &build_defaults
       binary: bin/sg-ripper
       ldflags:
-        - -s -w -X sg-ripper/cmd.appVersion=${{.Version}}" -X sg-ripper/cmd.gitCommit=${{.Commit}}
+        - -s -w
+        - -X github.com/cloud-crafts/sg-ripper/cmd.appVersion=${{.Version}}
+        - -X github.com/cloud-crafts/sg-ripper/cmd.main.gitCommit=${{.Commit}}
     id: macos
     goos: [darwin]
     goarch: [amd64, arm64]
@@ -79,7 +81,7 @@ brews:
 
     folder: Formula
     homepage: "https://github.com/cloud-crafts/sg-ripper"
-    description: "AWS Security Group and ENI cleaner.."
+    description: "AWS Security Group and ENI cleaner."
     license: "MIT"
     skip_upload: auto
 
