@@ -14,6 +14,6 @@ jobs:
       - name: Tag
         uses: cloud-crafts/semver-release-action@v1.5.0
         with:
-          release_branch: master
+          release_branch: main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
