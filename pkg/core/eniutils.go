@@ -4,10 +4,10 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/config"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"sg-ripper/pkg/core/builders"
-	"sg-ripper/pkg/core/clients"
-	coreTypes "sg-ripper/pkg/core/types"
-	"sg-ripper/pkg/core/utils"
+	"github.com/cloud-crafts/sg-ripper/pkg/core/builders"
+	"github.com/cloud-crafts/sg-ripper/pkg/core/clients"
+	coreTypes "github.com/cloud-crafts/sg-ripper/pkg/core/types"
+	"github.com/cloud-crafts/sg-ripper/pkg/core/utils"
 )
 
 // ListNetworkInterfaces returns a slice of NetworkInterfaceDetails based on the input ENI IDs and filters.

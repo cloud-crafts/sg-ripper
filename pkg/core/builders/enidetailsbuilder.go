@@ -4,10 +4,10 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/cloud-crafts/sg-ripper/pkg/core/clients"
+	coreTypes "github.com/cloud-crafts/sg-ripper/pkg/core/types"
+	"github.com/cloud-crafts/sg-ripper/pkg/core/utils"
 	cmap "github.com/orcaman/concurrent-map/v2"
-	"sg-ripper/pkg/core/clients"
-	coreTypes "sg-ripper/pkg/core/types"
-	"sg-ripper/pkg/core/utils"
 )
 
 type EniDetailsBuilder struct {

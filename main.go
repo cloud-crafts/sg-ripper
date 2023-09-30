@@ -1,6 +1,6 @@
 package main
 
-import "sg-ripper/cmd"
+import "github.com/cloud-crafts/sg-ripper/cmd"
 
 func main() {
 	cmd.Execute()

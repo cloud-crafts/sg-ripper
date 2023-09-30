@@ -8,9 +8,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	lambdaTypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/aws/smithy-go"
+	coreTypes "github.com/cloud-crafts/sg-ripper/pkg/core/types"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"regexp"
-	coreTypes "sg-ripper/pkg/core/types"
 )
 
 type AwsLambdaClient struct {

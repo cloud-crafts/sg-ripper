@@ -6,8 +6,8 @@ import (
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	rdsTypes "github.com/aws/aws-sdk-go-v2/service/rds/types"
+	coreTypes "github.com/cloud-crafts/sg-ripper/pkg/core/types"
 	"github.com/hashicorp/go-set"
-	coreTypes "sg-ripper/pkg/core/types"
 )
 
 type AwsRdsClient struct {
