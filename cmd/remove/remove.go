@@ -2,10 +2,10 @@ package remove
 
 import (
 	"fmt"
+	"github.com/cloud-crafts/sg-ripper/pkg/core"
+	"github.com/cloud-crafts/sg-ripper/pkg/core/utils"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"sg-ripper/pkg/core"
-	"sg-ripper/pkg/core/utils"
 )
 
 var (

@@ -5,9 +5,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	coreTypes "github.com/cloud-crafts/sg-ripper/pkg/core/types"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"regexp"
-	coreTypes "sg-ripper/pkg/core/types"
 )
 
 type AwsElbClient struct {

@@ -2,13 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/cloud-crafts/sg-ripper/cmd/list"
+	"github.com/cloud-crafts/sg-ripper/cmd/listeni"
+	"github.com/cloud-crafts/sg-ripper/cmd/remove"
+	"github.com/cloud-crafts/sg-ripper/cmd/removeeni"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	"os"
-	"sg-ripper/cmd/list"
-	"sg-ripper/cmd/listeni"
-	"sg-ripper/cmd/remove"
-	"sg-ripper/cmd/removeeni"
 )
 
 // Execute - parse CLI arguments and execute command

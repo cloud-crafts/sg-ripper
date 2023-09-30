@@ -5,10 +5,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	coreTypes "github.com/cloud-crafts/sg-ripper/pkg/core/types"
+	"github.com/cloud-crafts/sg-ripper/pkg/core/utils"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"regexp"
-	coreTypes "sg-ripper/pkg/core/types"
-	"sg-ripper/pkg/core/utils"
 )
 
 const MaxResults = 1000

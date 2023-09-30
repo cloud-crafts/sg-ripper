@@ -2,11 +2,11 @@ package listeni
 
 import (
 	"fmt"
+	"github.com/cloud-crafts/sg-ripper/cmd/cmdutils"
+	"github.com/cloud-crafts/sg-ripper/pkg/core"
+	coreTypes "github.com/cloud-crafts/sg-ripper/pkg/core/types"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"sg-ripper/cmd/cmdutils"
-	"sg-ripper/pkg/core"
-	coreTypes "sg-ripper/pkg/core/types"
 	"strings"
 )
 
