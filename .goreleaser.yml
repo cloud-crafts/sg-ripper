@@ -35,7 +35,7 @@ builds:
       ldflags:
         - -s -w
         - -X github.com/cloud-crafts/sg-ripper/cmd.appVersion=${{.Version}}
-        - -X github.com/cloud-crafts/sg-ripper/cmd.main.gitCommit=${{.Commit}}
+        - -X github.com/cloud-crafts/sg-ripper/cmd.gitCommit=${{.Commit}}
     id: macos
     goos: [darwin]
     goarch: [amd64, arm64]
